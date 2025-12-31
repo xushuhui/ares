@@ -1,11 +1,19 @@
 package ares
 
 import (
+	"bytes"
+	"encoding/json"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func TestContextSetGet(t *testing.T) {
@@ -207,5 +215,801 @@ func TestContextStoreInHandler(t *testing.T) {
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", rr.Code)
+	}
+}
+
+func TestContextParam(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Create a chi router to test URL parameters
+	r := chi.NewRouter()
+	r.Get("/users/{id}", func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(w, req, logger)
+		defer ctx.release()
+
+		id := ctx.Param("id")
+		if id != "123" {
+			t.Errorf("Expected id='123', got '%s'", id)
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest("GET", "/users/123", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+}
+
+func TestContextQuery(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test?name=john&age=30&active=true&score=95.5", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test Query
+	if name := ctx.Query("name"); name != "john" {
+		t.Errorf("Expected name='john', got '%s'", name)
+	}
+
+	if missing := ctx.Query("missing"); missing != "" {
+		t.Errorf("Expected empty string for missing query, got '%s'", missing)
+	}
+}
+
+func TestContextQueryDefault(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test?name=john", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test with existing parameter
+	if name := ctx.QueryDefault("name", "default"); name != "john" {
+		t.Errorf("Expected name='john', got '%s'", name)
+	}
+
+	// Test with missing parameter
+	if age := ctx.QueryDefault("age", "25"); age != "25" {
+		t.Errorf("Expected default value '25', got '%s'", age)
+	}
+}
+
+func TestContextQueryInt(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test?age=30&invalid=abc", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test valid int
+	if age := ctx.QueryInt("age", 0); age != 30 {
+		t.Errorf("Expected age=30, got %d", age)
+	}
+
+	// Test invalid int (should return default)
+	if invalid := ctx.QueryInt("invalid", 25); invalid != 25 {
+		t.Errorf("Expected default value 25 for invalid int, got %d", invalid)
+	}
+
+	// Test missing parameter
+	if missing := ctx.QueryInt("missing", 50); missing != 50 {
+		t.Errorf("Expected default value 50 for missing parameter, got %d", missing)
+	}
+}
+
+func TestContextQueryBool(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test?active=true&inactive=false&invalid=abc", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test true value
+	if active := ctx.QueryBool("active", false); active != true {
+		t.Errorf("Expected active=true, got %v", active)
+	}
+
+	// Test false value
+	if inactive := ctx.QueryBool("inactive", true); inactive != false {
+		t.Errorf("Expected inactive=false, got %v", inactive)
+	}
+
+	// Test invalid bool (should return default)
+	if invalid := ctx.QueryBool("invalid", true); invalid != true {
+		t.Errorf("Expected default value true for invalid bool, got %v", invalid)
+	}
+
+	// Test missing parameter
+	if missing := ctx.QueryBool("missing", true); missing != true {
+		t.Errorf("Expected default value true for missing parameter, got %v", missing)
+	}
+}
+
+func TestContextQueryFloat(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test?score=95.5&invalid=abc", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test valid float
+	if score := ctx.QueryFloat("score", 0.0); score != 95.5 {
+		t.Errorf("Expected score=95.5, got %f", score)
+	}
+
+	// Test invalid float (should return default)
+	if invalid := ctx.QueryFloat("invalid", 100.0); invalid != 100.0 {
+		t.Errorf("Expected default value 100.0 for invalid float, got %f", invalid)
+	}
+
+	// Test missing parameter
+	if missing := ctx.QueryFloat("missing", 75.0); missing != 75.0 {
+		t.Errorf("Expected default value 75.0 for missing parameter, got %f", missing)
+	}
+}
+
+func TestContextFormValue(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Create form data
+	form := url.Values{}
+	form.Add("username", "johndoe")
+	form.Add("email", "john@example.com")
+
+	req := httptest.NewRequest("POST", "/test", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test existing form values
+	if username := ctx.FormValue("username"); username != "johndoe" {
+		t.Errorf("Expected username='johndoe', got '%s'", username)
+	}
+
+	if email := ctx.FormValue("email"); email != "john@example.com" {
+		t.Errorf("Expected email='john@example.com', got '%s'", email)
+	}
+
+	// Test missing form value
+	if missing := ctx.FormValue("missing"); missing != "" {
+		t.Errorf("Expected empty string for missing form value, got '%s'", missing)
+	}
+}
+
+func TestContextJSON(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	data := map[string]any{
+		"name": "john",
+		"age":  30,
+		"active": true,
+	}
+
+	err := ctx.JSON(http.StatusOK, data)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if contentType := w.Header().Get("Content-Type"); contentType != "application/json" {
+		t.Errorf("Expected Content-Type 'application/json', got '%s'", contentType)
+	}
+
+	// Verify JSON content
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Errorf("Failed to unmarshal response: %v", err)
+	}
+
+	if result["name"] != "john" {
+		t.Errorf("Expected name='john', got '%v'", result["name"])
+	}
+}
+
+func TestContextString(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	text := "Hello, World!"
+	err := ctx.String(http.StatusOK, text)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if contentType := w.Header().Get("Content-Type"); contentType != "text/plain" {
+		t.Errorf("Expected Content-Type 'text/plain', got '%s'", contentType)
+	}
+
+	if body := w.Body.String(); body != text {
+		t.Errorf("Expected body '%s', got '%s'", text, body)
+	}
+}
+
+func TestContextStatus(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	ctx.Status(http.StatusNoContent)
+
+	if w.Code != http.StatusNoContent {
+		t.Errorf("Expected status 204, got %d", w.Code)
+	}
+
+	if body := w.Body.String(); body != "" {
+		t.Errorf("Expected empty body, got '%s'", body)
+	}
+}
+
+func TestContextBind(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	type User struct {
+		Name string `json:"name"`
+		Age  int    `json:"age"`
+	}
+
+	user := User{Name: "john", Age: 30}
+	jsonData, _ := json.Marshal(user)
+
+	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonData))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	var result User
+	err := ctx.Bind(&result)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if result.Name != "john" {
+		t.Errorf("Expected name='john', got '%s'", result.Name)
+	}
+
+	if result.Age != 30 {
+		t.Errorf("Expected age=30, got %d", result.Age)
+	}
+}
+
+func TestContextBindInvalidJSON(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("POST", "/test", strings.NewReader("invalid json"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	var result map[string]any
+	err := ctx.Bind(&result)
+	if err == nil {
+		t.Error("Expected error for invalid JSON")
+	}
+}
+
+func TestContextCookie(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "abc123"})
+	req.AddCookie(&http.Cookie{Name: "user", Value: "john"})
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test existing cookie
+	cookie, err := ctx.Cookie("session")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if cookie.Value != "abc123" {
+		t.Errorf("Expected session='abc123', got '%s'", cookie.Value)
+	}
+
+	// Test non-existing cookie
+	_, err = ctx.Cookie("missing")
+	if err == nil {
+		t.Error("Expected error for missing cookie")
+	}
+}
+
+func TestContextSetCookie(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	cookie := &http.Cookie{
+		Name:     "session",
+		Value:    "abc123",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   3600,
+	}
+
+	ctx.SetCookie(cookie)
+
+	setCookieHeader := w.Header().Get("Set-Cookie")
+	if !strings.Contains(setCookieHeader, "session=abc123") {
+		t.Errorf("Expected Set-Cookie header to contain 'session=abc123', got '%s'", setCookieHeader)
+	}
+}
+
+func TestContextRedirect(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	err := ctx.Redirect(http.StatusFound, "/new-location")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if w.Code != http.StatusFound {
+		t.Errorf("Expected status 302, got %d", w.Code)
+	}
+
+	location := w.Header().Get("Location")
+	if location != "/new-location" {
+		t.Errorf("Expected Location '/new-location', got '%s'", location)
+	}
+}
+
+func TestContextRedirectInvalidCode(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Use invalid redirect code - should default to 302
+	err := ctx.Redirect(200, "/new-location")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if w.Code != http.StatusFound {
+		t.Errorf("Expected status 302 for invalid redirect code, got %d", w.Code)
+	}
+}
+
+func TestContextGetSetHeader(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Authorization", "Bearer token123")
+	req.Header.Set("User-Agent", "TestClient/1.0")
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test GetHeader
+	auth := ctx.GetHeader("Authorization")
+	if auth != "Bearer token123" {
+		t.Errorf("Expected Authorization='Bearer token123', got '%s'", auth)
+	}
+
+	userAgent := ctx.GetHeader("User-Agent")
+	if userAgent != "TestClient/1.0" {
+		t.Errorf("Expected User-Agent='TestClient/1.0', got '%s'", userAgent)
+	}
+
+	missing := ctx.GetHeader("Missing-Header")
+	if missing != "" {
+		t.Errorf("Expected empty string for missing header, got '%s'", missing)
+	}
+
+	// Test SetHeader
+	ctx.SetHeader("X-Custom-Header", "custom-value")
+	ctx.SetHeader("X-API-Version", "1.0")
+
+	if header := w.Header().Get("X-Custom-Header"); header != "custom-value" {
+		t.Errorf("Expected X-Custom-Header='custom-value', got '%s'", header)
+	}
+
+	if header := w.Header().Get("X-API-Version"); header != "1.0" {
+		t.Errorf("Expected X-API-Version='1.0', got '%s'", header)
+	}
+}
+
+func TestContextFile(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Create a temporary file
+	tempFile := filepath.Join(os.TempDir(), "test_file.txt")
+	content := "Hello, World!"
+	err := os.WriteFile(tempFile, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile)
+
+	req := httptest.NewRequest("GET", "/file", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	err = ctx.File(tempFile)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if body := w.Body.String(); body != content {
+		t.Errorf("Expected body '%s', got '%s'", content, body)
+	}
+}
+
+func TestContextFileNotFound(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/file", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	err := ctx.File("/non/existent/file.txt")
+	if err == nil {
+		t.Error("Expected error for non-existent file")
+	}
+}
+
+func TestContextAttachment(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Create a temporary file
+	tempFile := filepath.Join(os.TempDir(), "test_attachment.txt")
+	content := "Attachment content"
+	err := os.WriteFile(tempFile, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile)
+
+	req := httptest.NewRequest("GET", "/download", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	err = ctx.Attachment(tempFile, "my_file.txt")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	contentDisposition := w.Header().Get("Content-Disposition")
+	if !strings.Contains(contentDisposition, `attachment; filename="my_file.txt"`) {
+		t.Errorf("Expected Content-Disposition with filename, got '%s'", contentDisposition)
+	}
+
+	if body := w.Body.String(); body != content {
+		t.Errorf("Expected body '%s', got '%s'", content, body)
+	}
+}
+
+func TestContextAttachmentDefaultFilename(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Create a temporary file
+	tempFile := filepath.Join(os.TempDir(), "default_name.txt")
+	content := "Default filename test"
+	err := os.WriteFile(tempFile, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile)
+
+	req := httptest.NewRequest("GET", "/download", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Use empty filename - should use filepath
+	err = ctx.Attachment(tempFile, "")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	contentDisposition := w.Header().Get("Content-Disposition")
+	if !strings.Contains(contentDisposition, tempFile) {
+		t.Errorf("Expected Content-Disposition with default filename, got '%s'", contentDisposition)
+	}
+}
+
+func TestContextStream(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/stream", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	content := "Streaming content"
+	reader := strings.NewReader(content)
+
+	err := ctx.Stream("text/plain", reader)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if contentType := w.Header().Get("Content-Type"); contentType != "text/plain" {
+		t.Errorf("Expected Content-Type 'text/plain', got '%s'", contentType)
+	}
+
+	if body := w.Body.String(); body != content {
+		t.Errorf("Expected body '%s', got '%s'", content, body)
+	}
+}
+
+func TestContextMultipartForm(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Create multipart form data
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("name", "john")
+	writer.WriteField("email", "john@example.com")
+	writer.Close()
+
+	req := httptest.NewRequest("POST", "/upload", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	form, err := ctx.MultipartForm()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if name := form.Value["name"][0]; name != "john" {
+		t.Errorf("Expected name='john', got '%s'", name)
+	}
+
+	if email := form.Value["email"][0]; email != "john@example.com" {
+		t.Errorf("Expected email='john@example.com', got '%s'", email)
+	}
+}
+
+func TestContextFormFile(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Create multipart form with file
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	fileWriter, err := writer.CreateFormFile("upload", "test.txt")
+	if err != nil {
+		t.Fatalf("Failed to create form file: %v", err)
+	}
+	fileWriter.Write([]byte("file content"))
+
+	writer.WriteField("name", "john")
+	writer.Close()
+
+	req := httptest.NewRequest("POST", "/upload", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	fileHeader, err := ctx.FormFile("upload")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if fileHeader.Filename != "test.txt" {
+		t.Errorf("Expected filename='test.txt', got '%s'", fileHeader.Filename)
+	}
+
+	if fileHeader.Size != 12 { // "file content" is 12 bytes
+		t.Errorf("Expected file size=12, got %d", fileHeader.Size)
+	}
+}
+
+func TestContextFormFileNotFound(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Create form without file
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("name", "john")
+	writer.Close()
+
+	req := httptest.NewRequest("POST", "/upload", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	_, err := ctx.FormFile("missing")
+	if err == nil {
+		t.Error("Expected error for missing file")
+	}
+}
+
+func TestContextSaveUploadedFile(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Create multipart form with file
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	fileWriter, err := writer.CreateFormFile("upload", "test.txt")
+	if err != nil {
+		t.Fatalf("Failed to create form file: %v", err)
+	}
+	content := "file content for saving"
+	fileWriter.Write([]byte(content))
+	writer.Close()
+
+	req := httptest.NewRequest("POST", "/upload", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	fileHeader, err := ctx.FormFile("upload")
+	if err != nil {
+		t.Fatalf("Failed to get form file: %v", err)
+	}
+
+	tempFile := filepath.Join(os.TempDir(), "saved_file.txt")
+	defer os.Remove(tempFile)
+
+	err = ctx.SaveUploadedFile(fileHeader, tempFile)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	// Verify file was saved correctly
+	savedContent, err := os.ReadFile(tempFile)
+	if err != nil {
+		t.Fatalf("Failed to read saved file: %v", err)
+	}
+
+	if string(savedContent) != content {
+		t.Errorf("Expected saved content '%s', got '%s'", content, string(savedContent))
+	}
+}
+
+func TestContextWriteTracking(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Initially should not be written
+	if ctx.written {
+		t.Error("Expected written=false initially")
+	}
+
+	// WriteHeader should set written=true
+	ctx.WriteHeader(http.StatusOK)
+	if !ctx.written {
+		t.Error("Expected written=true after WriteHeader")
+	}
+
+	// Multiple WriteHeader calls should not change status
+	ctx.WriteHeader(http.StatusBadRequest)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 (first call), got %d", w.Code)
+	}
+}
+
+func TestContextWriteMethod(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	content := "Hello, World!"
+	n, err := ctx.Write([]byte(content))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if n != len(content) {
+		t.Errorf("Expected %d bytes written, got %d", len(content), n)
+	}
+
+	if !ctx.written {
+		t.Error("Expected written=true after Write")
+	}
+
+	if body := w.Body.String(); body != content {
+		t.Errorf("Expected body '%s', got '%s'", content, body)
+	}
+}
+
+// Benchmark tests for performance-critical methods
+func BenchmarkContextQuery(b *testing.B) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	req := httptest.NewRequest("GET", "/test?name=john&age=30&active=true", nil)
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ctx := NewContext(w, req, logger)
+		_ = ctx.Query("name")
+		ctx.release()
+	}
+}
+
+func BenchmarkContextQueryInt(b *testing.B) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	req := httptest.NewRequest("GET", "/test?age=30", nil)
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ctx := NewContext(w, req, logger)
+		_ = ctx.QueryInt("age", 0)
+		ctx.release()
+	}
+}
+
+func BenchmarkContextJSON(b *testing.B) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	req := httptest.NewRequest("GET", "/test", nil)
+
+	data := map[string]any{
+		"name": "john",
+		"age":  30,
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		ctx := NewContext(w, req, logger)
+		_ = ctx.JSON(http.StatusOK, data)
+		ctx.release()
 	}
 }
