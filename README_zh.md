@@ -290,7 +290,7 @@ app.GET("/profile", func(ctx *ares.Context) error {
 
 Ares 提供两种类型的中间件：
 - **核心中间件**：`github.com/xushuhui/ares/middleware` 中的基础中间件
-- **扩展中间件**：`github.com/xushuhui/ares/contrib/middleware` 中的额外中间件
+- **扩展中间件**：`github.com/xushuhui/ares-contrib/middleware` 中的额外中间件
 
 #### 日志中间件
 
@@ -349,14 +349,14 @@ app.Use(recovery.New(
 
 #### 扩展中间件
 
-有关 CORS、JWT、限流、Gzip 等额外中间件，请参阅 [contrib 包](contrib/README_zh.md)：
+有关 CORS、JWT、限流、Gzip 等额外中间件，请参阅 [ares-contrib 包](https://github.com/xushuhui/ares-contrib)：
 
 ```go
 import (
-    "github.com/xushuhui/ares/contrib/middleware/cors"
-    "github.com/xushuhui/ares/contrib/middleware/jwt"
-    "github.com/xushuhui/ares/contrib/middleware/ratelimiter"
-    "github.com/xushuhui/ares/contrib/middleware/gzip"
+    "github.com/xushuhui/ares-contrib/middleware/cors"
+    "github.com/xushuhui/ares-contrib/middleware/jwt"
+    "github.com/xushuhui/ares-contrib/middleware/ratelimiter"
+    "github.com/xushuhui/ares-contrib/middleware/gzip"
 )
 
 // CORS
@@ -572,15 +572,18 @@ ares/
 ├── ares.go              # 框架核心
 ├── context.go           # 增强的上下文
 ├── server.go            # 服务器接口和 HTTP 实现
-├── middleware/          # 内置中间件
-│   ├── logger.go        # 请求日志
-│   ├── recovery.go      # Panic 恢复
-│   ├── cors.go          # CORS 支持
-│   ├── requestid.go     # 请求 ID 生成
-│   └── bodylimit.go     # 请求体大小限制
+├── middleware/          # 核心中间件
+│   ├── logger/          # 请求日志
+│   │   ├── logger.go
+│   │   └── logger_test.go
+│   └── recovery/        # Panic 恢复
+│       ├── recovery.go
+│       └── recovery_test.go
 └── examples/            # 示例应用
     └── basic/
 ```
+
+**注意**：扩展中间件（CORS、JWT、限流等）现在在独立的 [ares-contrib](https://github.com/xushuhui/ares-contrib) 仓库中提供。
 
 ## 设计理念
 

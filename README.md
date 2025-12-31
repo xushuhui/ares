@@ -290,7 +290,7 @@ app.GET("/profile", func(ctx *ares.Context) error {
 
 Ares provides two types of middleware:
 - **Core Middleware**: Essential middleware in `github.com/xushuhui/ares/middleware`
-- **Extended Middleware**: Additional middleware in `github.com/xushuhui/ares/contrib/middleware`
+- **Extended Middleware**: Additional middleware in `github.com/xushuhui/ares-contrib/middleware`
 
 #### Logger Middleware
 
@@ -349,14 +349,14 @@ When a panic occurs:
 
 #### Extended Middleware
 
-For additional middleware like CORS, JWT, Rate Limiting, Gzip, etc., see the [contrib package](contrib/README.md):
+For additional middleware like CORS, JWT, Rate Limiting, Gzip, etc., see the [ares-contrib package](https://github.com/xushuhui/ares-contrib):
 
 ```go
 import (
-    "github.com/xushuhui/ares/contrib/middleware/cors"
-    "github.com/xushuhui/ares/contrib/middleware/jwt"
-    "github.com/xushuhui/ares/contrib/middleware/ratelimiter"
-    "github.com/xushuhui/ares/contrib/middleware/gzip"
+    "github.com/xushuhui/ares-contrib/middleware/cors"
+    "github.com/xushuhui/ares-contrib/middleware/jwt"
+    "github.com/xushuhui/ares-contrib/middleware/ratelimiter"
+    "github.com/xushuhui/ares-contrib/middleware/gzip"
 )
 
 // CORS
@@ -579,17 +579,11 @@ ares/
 │   └── recovery/        # Panic recovery
 │       ├── recovery.go
 │       └── recovery_test.go
-├── contrib/             # Extended functionality
-│   └── middleware/      # Extended middleware
-│       ├── jwt/         # JWT authentication
-│       ├── ratelimiter/ # Rate limiting
-│       ├── gzip/        # Response compression
-│       ├── cors/        # CORS support
-│       ├── requestid/   # Request ID generation
-│       └── bodylimit/   # Body size limit
 └── examples/            # Example applications
     └── basic/
 ```
+
+**Note**: Extended middleware (CORS, JWT, Rate Limiting, etc.) is now available in the separate [ares-contrib](https://github.com/xushuhui/ares-contrib) repository.
 
 ## Design Philosophy
 
