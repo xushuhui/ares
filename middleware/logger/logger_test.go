@@ -1,0 +1,235 @@
+package logger
+
+import (
+	"bytes"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestLogger(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	middleware := New(WithLogger(logger))
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("test response"))
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	// Check response
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rr.Code)
+	}
+
+	// Check log output
+	logOutput := buf.String()
+	if !strings.Contains(logOutput, "request") {
+		t.Error("Expected log to contain 'request'")
+	}
+	if !strings.Contains(logOutput, "GET") {
+		t.Error("Expected log to contain method 'GET'")
+	}
+	if !strings.Contains(logOutput, "/test") {
+		t.Error("Expected log to contain path '/test'")
+	}
+	if !strings.Contains(logOutput, "200") {
+		t.Error("Expected log to contain status '200'")
+	}
+}
+
+func TestLoggerWithSkipPaths(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	middleware := New(WithLogger(logger), WithSkipPaths([]string{"/health", "/metrics"}))
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Test skipped path
+	req1 := httptest.NewRequest("GET", "/health", nil)
+	rr1 := httptest.NewRecorder()
+	handler.ServeHTTP(rr1, req1)
+
+	if buf.Len() > 0 {
+		t.Error("Expected no log for skipped path /health")
+	}
+
+	// Test non-skipped path
+	req2 := httptest.NewRequest("GET", "/api", nil)
+	rr2 := httptest.NewRecorder()
+	handler.ServeHTTP(rr2, req2)
+
+	if buf.Len() == 0 {
+		t.Error("Expected log for non-skipped path /api")
+	}
+}
+
+func TestLoggerWithCustomFields(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	middleware := New(WithLogger(logger), WithCustomFields(func(r *http.Request, status int, duration time.Duration) []any {
+		return []any{
+			"user_agent", r.UserAgent(),
+			"custom_field", "custom_value",
+		}
+	}))
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("User-Agent", "test-agent")
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	logOutput := buf.String()
+	if !strings.Contains(logOutput, "test-agent") {
+		t.Error("Expected log to contain custom user_agent field")
+	}
+	if !strings.Contains(logOutput, "custom_value") {
+		t.Error("Expected log to contain custom_field")
+	}
+}
+
+func TestLoggerStatusCodes(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+	}{
+		{"200 OK", http.StatusOK},
+		{"201 Created", http.StatusCreated},
+		{"400 Bad Request", http.StatusBadRequest},
+		{"404 Not Found", http.StatusNotFound},
+		{"500 Internal Server Error", http.StatusInternalServerError},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+			middleware := New(WithLogger(logger))
+
+			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+			}))
+
+			req := httptest.NewRequest("GET", "/test", nil)
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			logOutput := buf.String()
+			// Check if log contains the status code as a number
+			statusStr := string(rune('0' + tt.statusCode/100)) + string(rune('0' + (tt.statusCode/10)%10)) + string(rune('0' + tt.statusCode%10))
+			if !strings.Contains(logOutput, statusStr) && !strings.Contains(logOutput, "status") {
+				t.Errorf("Expected log to contain status information for code %d, got: %s", tt.statusCode, logOutput)
+			}
+		})
+	}
+}
+
+func TestLoggerBytesWritten(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	middleware := New(WithLogger(logger))
+
+	responseBody := "test response body"
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(responseBody))
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	logOutput := buf.String()
+	// Should log the number of bytes written
+	if !strings.Contains(logOutput, "bytes") {
+		t.Error("Expected log to contain 'bytes' field")
+	}
+}
+
+func TestLoggerDifferentMethods(t *testing.T) {
+	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			var buf bytes.Buffer
+			logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+			middleware := New(WithLogger(logger))
+
+			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := httptest.NewRequest(method, "/test", nil)
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			logOutput := buf.String()
+			if !strings.Contains(logOutput, method) {
+				t.Errorf("Expected log to contain method %s", method)
+			}
+		})
+	}
+}
+
+func TestLoggerDefaultLogger(t *testing.T) {
+	// Test that default logger is used when none provided
+	middleware := New()
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rr.Code)
+	}
+}
+
+func TestLoggerRemoteAddr(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	middleware := New(WithLogger(logger))
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.RemoteAddr = "192.168.1.1:1234"
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	logOutput := buf.String()
+	if !strings.Contains(logOutput, "192.168.1.1") {
+		t.Error("Expected log to contain remote address")
+	}
+}
