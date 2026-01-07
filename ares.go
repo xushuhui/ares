@@ -14,6 +14,12 @@ import (
 	"github.com/xushuhui/ares/middleware/recovery"
 )
 
+// contextKey is a custom type for context keys to avoid collisions
+type contextKey string
+
+// ErrorKey is the context key for storing handler errors
+const ErrorKey contextKey = "handler_error"
+
 // Handler defines the handler function signature
 type Handler func(*Context) error
 
@@ -124,7 +130,7 @@ func (a *Ares) wrapHandler(h Handler) http.HandlerFunc {
 
 		if err := h(ctx); err != nil {
 			// Store error in request context for middleware access
-			*r = *r.WithContext(context.WithValue(r.Context(), "handler_error", err))
+			*r = *r.WithContext(context.WithValue(r.Context(), ErrorKey, err))
 
 			// Store error in context for middleware access
 			ctx.SetError(err)

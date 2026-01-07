@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+// contextKey is a custom type for context keys to avoid collisions
+type contextKey string
+
+// errorKey is the context key for retrieving handler errors from request context
+const errorKey contextKey = "handler_error"
+
 // Option is logger option.
 type Option func(*options)
 
@@ -63,7 +69,7 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 // getHandlerError retrieves the error from request context if present
 func (rw *responseWriter) getHandlerError() error {
 	if rw.request != nil {
-		if err := rw.request.Context().Value("handler_error"); err != nil {
+		if err := rw.request.Context().Value(errorKey); err != nil {
 			if e, ok := err.(error); ok {
 				return e
 			}
@@ -108,14 +114,6 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 			// Log request details
 			duration := time.Since(start)
 
-			// Get handler error if any
-			var handlerErr error
-			if err := r.Context().Value("handler_error"); err != nil {
-				if e, ok := err.(error); ok {
-					handlerErr = e
-				}
-			}
-
 			// Build log fields
 			fields := []any{
 				"method", r.Method,
@@ -126,7 +124,7 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 			}
 
 			// Add error field if present
-			if handlerErr != nil {
+			if handlerErr := rw.getHandlerError(); handlerErr != nil {
 				fields = append(fields, "error", handlerErr.Error())
 			}
 

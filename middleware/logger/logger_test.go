@@ -246,7 +246,7 @@ func TestLoggerWithHandlerError(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Store error in request context to simulate Ares framework behavior
-		*r = *r.WithContext(context.WithValue(r.Context(), "handler_error", testError))
+		*r = *r.WithContext(context.WithValue(r.Context(), errorKey, testError))
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 
