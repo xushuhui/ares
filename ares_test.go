@@ -1,12 +1,16 @@
 package ares
 
 import (
+	"bytes"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/xushuhui/ares/middleware/logger"
 )
 
 func TestNew(t *testing.T) {
@@ -153,5 +157,82 @@ func TestNewVsDefault(t *testing.T) {
 	appDefault.ServeHTTP(rr2, req)
 	if rr2.Code != http.StatusOK {
 		t.Errorf("Default() app: Expected status 200, got %d", rr2.Code)
+	}
+}
+
+func TestLoggerMiddlewareWithHandlerError(t *testing.T) {
+	// Create a buffer to capture log output
+	var buf bytes.Buffer
+	customLogger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	// Create app with custom logger
+	app := New(WithLogger(customLogger))
+	app.Use(logger.New(logger.WithLogger(customLogger)))
+
+	// Add a handler that returns an error
+	testError := errors.New("test handler error")
+	app.GET("/error", func(ctx *Context) error {
+		return testError
+	})
+
+	req := httptest.NewRequest("GET", "/error", nil)
+	rr := httptest.NewRecorder()
+
+	app.ServeHTTP(rr, req)
+
+	// Check response status
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500, got %d", rr.Code)
+	}
+
+	// Check that error is in response
+	if !strings.Contains(rr.Body.String(), "test handler error") {
+		t.Error("Expected error message in response body")
+	}
+
+	// Check that logger middleware logged the error
+	logOutput := buf.String()
+	if !strings.Contains(logOutput, "test handler error") {
+		t.Error("Expected logger middleware to log the handler error")
+	}
+	if !strings.Contains(logOutput, "error") {
+		t.Error("Expected log to contain 'error' field")
+	}
+	if !strings.Contains(logOutput, "/error") {
+		t.Error("Expected log to contain the request path")
+	}
+}
+
+func TestLoggerMiddlewareWithoutError(t *testing.T) {
+	// Create a buffer to capture log output
+	var buf bytes.Buffer
+	customLogger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	// Create app with custom logger
+	app := New(WithLogger(customLogger))
+	app.Use(logger.New(logger.WithLogger(customLogger)))
+
+	// Add a handler that succeeds
+	app.GET("/success", func(ctx *Context) error {
+		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	req := httptest.NewRequest("GET", "/success", nil)
+	rr := httptest.NewRecorder()
+
+	app.ServeHTTP(rr, req)
+
+	// Check response status
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rr.Code)
+	}
+
+	// Check that logger middleware did not log an error
+	logOutput := buf.String()
+	if strings.Contains(logOutput, `"error"`) {
+		t.Error("Expected log not to contain 'error' field when handler succeeds")
+	}
+	if !strings.Contains(logOutput, "/success") {
+		t.Error("Expected log to contain the request path")
 	}
 }

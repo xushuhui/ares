@@ -47,7 +47,7 @@ func WithCustomFields(f func(*http.Request, int, time.Duration) []any) Option {
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
-	written    int
+	request    *http.Request
 }
 
 func (rw *responseWriter) WriteHeader(code int) {
@@ -57,8 +57,19 @@ func (rw *responseWriter) WriteHeader(code int) {
 
 func (rw *responseWriter) Write(b []byte) (int, error) {
 	n, err := rw.ResponseWriter.Write(b)
-	rw.written += n
 	return n, err
+}
+
+// getHandlerError retrieves the error from request context if present
+func (rw *responseWriter) getHandlerError() error {
+	if rw.request != nil {
+		if err := rw.request.Context().Value("handler_error"); err != nil {
+			if e, ok := err.(error); ok {
+				return e
+			}
+		}
+	}
+	return nil
 }
 
 // New returns a middleware that logs HTTP requests using slog
@@ -83,20 +94,27 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 					return
 				}
 			}
-
 			start := time.Now()
 
 			// Wrap response writer to capture status code
 			rw := &responseWriter{
 				ResponseWriter: w,
 				statusCode:     http.StatusOK,
+				request:        r,
 			}
-
 			// Process request
 			next.ServeHTTP(rw, r)
 
 			// Log request details
 			duration := time.Since(start)
+
+			// Get handler error if any
+			var handlerErr error
+			if err := r.Context().Value("handler_error"); err != nil {
+				if e, ok := err.(error); ok {
+					handlerErr = e
+				}
+			}
 
 			// Build log fields
 			fields := []any{
@@ -104,8 +122,12 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 				"path", r.URL.Path,
 				"status", rw.statusCode,
 				"duration", duration.String(),
-				"bytes", rw.written,
 				"ip", r.RemoteAddr,
+			}
+
+			// Add error field if present
+			if handlerErr != nil {
+				fields = append(fields, "error", handlerErr.Error())
 			}
 
 			// Add custom fields if provided

@@ -1,5 +1,7 @@
 # Ares
 
+[中文文档](README.zh.md)
+
 A lightweight, high-performance Go web framework built on top of [chi](https://github.com/go-chi/chi).
 
 ## Features

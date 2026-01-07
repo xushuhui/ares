@@ -123,6 +123,12 @@ func (a *Ares) wrapHandler(h Handler) http.HandlerFunc {
 		defer ctx.release() // Return to pool after use
 
 		if err := h(ctx); err != nil {
+			// Store error in request context for middleware access
+			*r = *r.WithContext(context.WithValue(r.Context(), "handler_error", err))
+
+			// Store error in context for middleware access
+			ctx.SetError(err)
+
 			// Log the error
 			a.logger.Error("handler error",
 				"error", err,

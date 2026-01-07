@@ -2,6 +2,8 @@ package logger
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -144,7 +146,7 @@ func TestLoggerStatusCodes(t *testing.T) {
 	}
 }
 
-func TestLoggerBytesWritten(t *testing.T) {
+func TestLoggerDuration(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 
@@ -161,9 +163,9 @@ func TestLoggerBytesWritten(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	logOutput := buf.String()
-	// Should log the number of bytes written
-	if !strings.Contains(logOutput, "bytes") {
-		t.Error("Expected log to contain 'bytes' field")
+	// Should log the duration
+	if !strings.Contains(logOutput, "duration") {
+		t.Error("Expected log to contain 'duration' field")
 	}
 }
 
@@ -231,5 +233,55 @@ func TestLoggerRemoteAddr(t *testing.T) {
 	logOutput := buf.String()
 	if !strings.Contains(logOutput, "192.168.1.1") {
 		t.Error("Expected log to contain remote address")
+	}
+}
+
+func TestLoggerWithHandlerError(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	middleware := New(WithLogger(logger))
+
+	testError := errors.New("test handler error")
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Store error in request context to simulate Ares framework behavior
+		*r = *r.WithContext(context.WithValue(r.Context(), "handler_error", testError))
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	logOutput := buf.String()
+	if !strings.Contains(logOutput, "test handler error") {
+		t.Error("Expected log to contain handler error message")
+	}
+	if !strings.Contains(logOutput, "error") {
+		t.Error("Expected log to contain 'error' field")
+	}
+}
+
+func TestLoggerWithoutError(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	middleware := New(WithLogger(logger))
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	logOutput := buf.String()
+	// Should not contain error field or error message when no error occurs
+	if strings.Contains(logOutput, `"error"`) {
+		t.Error("Expected log not to contain 'error' field when no error occurs")
 	}
 }

@@ -1,5 +1,7 @@
 # Ares
 
+[English](README.md)
+
 一个基于 [chi](https://github.com/go-chi/chi) 构建的轻量级、高性能 Go Web 框架。
 
 ## 特性

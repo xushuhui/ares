@@ -20,7 +20,6 @@ var contextPool = sync.Pool{
 	},
 }
 
-
 // Context wraps http.ResponseWriter and http.Request with additional helper methods
 type Context struct {
 	http.ResponseWriter
@@ -28,6 +27,7 @@ type Context struct {
 	logger  *slog.Logger
 	written bool
 	store   map[string]any // Key-value storage for passing data between middleware
+	err     error          // Handler error for middleware access
 }
 
 // NewContext creates a new Context instance from the pool
@@ -43,31 +43,19 @@ func NewContext(w http.ResponseWriter, r *http.Request, logger *slog.Logger) *Co
 	return ctx
 }
 
-// reset resets the Context for reuse
-func (c *Context) reset(w http.ResponseWriter, r *http.Request, logger *slog.Logger) {
-	c.ResponseWriter = w
-	c.Request = r
-	c.logger = logger
-	c.written = false
-	// Clear the store map
-	for k := range c.store {
-		delete(c.store, k)
-	}
-}
-
 // release returns the Context to the pool
 func (c *Context) release() {
 	c.ResponseWriter = nil
 	c.Request = nil
 	c.logger = nil
 	c.written = false
+	c.err = nil
 	// Clear the store map
 	for k := range c.store {
 		delete(c.store, k)
 	}
 	contextPool.Put(c)
 }
-
 
 // WriteHeader overrides http.ResponseWriter.WriteHeader to track if response was written
 func (c *Context) WriteHeader(code int) {
@@ -326,4 +314,14 @@ func (c *Context) GetBool(key string) bool {
 		}
 	}
 	return false
+}
+
+// SetError sets an error in the context for middleware access
+func (c *Context) SetError(err error) {
+	c.err = err
+}
+
+// Error returns the error stored in the context
+func (c *Context) Error() error {
+	return c.err
 }
