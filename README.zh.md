@@ -12,6 +12,7 @@
 - **高性能**：基于 chi 的快速路由器构建
 - **优雅关闭**：内置优雅关闭服务器支持
 - **中间件**：包含日志、恢复和 CORS 中间件
+- **丰富的生态系统**：提供扩展中间件和应用模板
 
 ## 安装
 
@@ -629,3 +630,81 @@ MIT
 ## 贡献
 
 欢迎贡献！请随时提交 Pull Request。
+
+## 生态系统
+
+Ares 生态系统包含额外的工具和资源，帮助您构建生产就绪的应用程序：
+
+### 📦 [Ares Contrib](https://github.com/xushuhui/ares-contrib)
+
+Ares 扩展中间件集合，提供生产就绪的中间件：
+
+- **Request ID** - 使用 UUID 生成的唯一请求追踪
+- **Secure Headers** - 安全头（CSP、HSTS、X-Frame-Options 等）
+- **CORS** - 跨域资源共享，可配置选项
+- **JWT** - 基于令牌的身份认证，支持自定义声明
+- **Rate Limiter** - 基于 IP/密钥的令牌桶限流
+- **GZIP** - 响应压缩，智能排除已压缩文件
+- **Body Limit** - 请求体大小限制，防止 DoS 攻击
+
+**安装：**
+```bash
+go get github.com/xushuhui/ares-contrib
+```
+
+**使用：**
+```go
+import (
+    "github.com/xushuhui/ares-contrib/middleware/cors"
+    "github.com/xushuhui/ares-contrib/middleware/jwt"
+    "github.com/xushuhui/ares-contrib/middleware/secure"
+)
+
+app.Use(secure.New())
+app.Use(cors.New(
+    cors.WithAllowedOrigins([]string{"https://example.com"}),
+))
+api := app.Group("/api", jwt.New([]byte("secret-key")))
+```
+
+[→ 查看文档](https://github.com/xushuhui/ares-contrib#readme)
+
+### 🏗️ [Ares Layout](https://github.com/xushuhui/ares-layout)
+
+应用模板，展示构建 Ares 应用程序的最佳实践：
+
+- **Clean Architecture** - 分层架构，关注点分离
+- **项目布局** - 行业标准目录结构
+- **依赖注入** - 基于 Wire 的依赖注入
+- **配置管理** - 基于环境的配置
+- **CRUD 示例** - 完整的用户管理示例
+- **测试** - 单元测试和集成测试示例
+
+**特性：**
+- ✅ Clean Architecture 模式
+- ✅ RESTful API 示例
+- ✅ 数据库集成
+- ✅ 中间件使用
+- ✅ 错误处理
+- ✅ 日志和监控就绪
+
+[→ 查看仓库](https://github.com/xushuhui/ares-layout#readme)
+
+### 其他资源
+
+- **示例**：查看 [examples/](examples/) 目录获取使用示例
+- **文档**：访问 [Wiki](https://github.com/xushuhui/ares/wiki) 获取详细文档
+- **问题反馈**：在 [GitHub Issues](https://github.com/xushuhui/ares/issues) 上报告错误或请求功能
+
+### 快速链接
+
+| 资源 | 描述 | 链接 |
+|----------|-------------|------|
+| **核心框架** | 轻量级 Web 框架 | [github.com/xushuhui/ares](https://github.com/xushuhui/ares) |
+| **扩展中间件** | 生产就绪的中间件 | [github.com/xushuhui/ares-contrib](https://github.com/xushuhui/ares-contrib) |
+| **应用模板** | 项目结构模板 | [github.com/xushuhui/ares-layout](https://github.com/xushuhui/ares-layout) |
+| **文档** | 官方文档 | [github.com/xushuhui/ares/wiki](https://github.com/xushuhui/ares/wiki) |
+
+---
+
+**由 Ares 社区用 ❤️ 构建**

@@ -12,6 +12,7 @@ A lightweight, high-performance Go web framework built on top of [chi](https://g
 - **High Performance**: Built on chi's fast router
 - **Graceful Shutdown**: Built-in support for graceful server shutdown
 - **Middleware**: Logger, Recovery, and CORS middleware included
+- **Rich Ecosystem**: Extended middleware and application templates available
 
 ## Installation
 
@@ -629,3 +630,81 @@ MIT
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Ecosystem
+
+The Ares ecosystem includes additional tools and resources to help you build production-ready applications:
+
+### 📦 [Ares Contrib](https://github.com/xushuhui/ares-contrib)
+
+Extended middleware collection for Ares providing production-ready middleware:
+
+- **Request ID** - Unique request tracking with UUID generation
+- **Secure Headers** - Security headers (CSP, HSTS, X-Frame-Options, etc.)
+- **CORS** - Cross-Origin Resource Sharing with configurable options
+- **JWT** - Token-based authentication with custom claims support
+- **Rate Limiter** - Token bucket rate limiting per IP/key
+- **GZIP** - Response compression with intelligent exclusions
+- **Body Limit** - Request body size limiting to prevent DoS
+
+**Installation:**
+```bash
+go get github.com/xushuhui/ares-contrib
+```
+
+**Usage:**
+```go
+import (
+    "github.com/xushuhui/ares-contrib/middleware/cors"
+    "github.com/xushuhui/ares-contrib/middleware/jwt"
+    "github.com/xushuhui/ares-contrib/middleware/secure"
+)
+
+app.Use(secure.New())
+app.Use(cors.New(
+    cors.WithAllowedOrigins([]string{"https://example.com"}),
+))
+api := app.Group("/api", jwt.New([]byte("secret-key")))
+```
+
+[→ View Documentation](https://github.com/xushuhui/ares-contrib#readme)
+
+### 🏗️ [Ares Layout](https://github.com/xushuhui/ares-layout)
+
+Application template demonstrating best practices for structuring Ares applications:
+
+- **Clean Architecture** - Separation of concerns with layered architecture
+- **Project Layout** - Industry-standard directory structure
+- **Dependency Injection** - Wire-based dependency injection
+- **Configuration Management** - Environment-based configuration
+- **Example CRUD** - Complete user management example
+- **Testing** - Unit and integration test examples
+
+**Features:**
+- ✅ Clean Architecture pattern
+- ✅ RESTful API example
+- ✅ Database integration
+- ✅ Middleware usage
+- ✅ Error handling
+- ✅ Logging and monitoring ready
+
+[→ View Repository](https://github.com/xushuhui/ares-layout#readme)
+
+### Additional Resources
+
+- **Examples**: Check the [examples/](examples/) directory for usage examples
+- **Documentation**: Visit the [Wiki](https://github.com/xushuhui/ares/wiki) for detailed documentation
+- **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/xushuhui/ares/issues)
+
+### Quick Links
+
+| Resource | Description | Link |
+|----------|-------------|------|
+| **Core Framework** | Lightweight web framework | [github.com/xushuhui/ares](https://github.com/xushuhui/ares) |
+| **Extended Middleware** | Production-ready middleware | [github.com/xushuhui/ares-contrib](https://github.com/xushuhui/ares-contrib) |
+| **Application Template** | Project structure template | [github.com/xushuhui/ares-layout](https://github.com/xushuhui/ares-layout) |
+| **Documentation** | Official documentation | [github.com/xushuhui/ares/wiki](https://github.com/xushuhui/ares/wiki) |
+
+---
+
+**Built with ❤️ by the Ares community**

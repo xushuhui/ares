@@ -41,11 +41,11 @@ go test -timeout 3s -run TestServerStartStop
 # Build the project (library - no main package)
 go build ./...
 
-# Run example (if examples exist)
-go run examples/basic/main.go
-
 # Check for compilation errors
 go build -o /dev/null ./...
+
+# Verify code (vet checks for common mistakes)
+go vet ./...
 ```
 
 ### Development
@@ -80,7 +80,9 @@ go mod verify
 - Uses `sync.Pool` for object reuse (performance optimization)
 - Provides helper methods: `JSON()`, `Bind()`, `Param()`, `Query*()`, `FormValue()`, etc.
 - Key-value storage: `Set()`, `Get()`, `MustGet()`, `GetString()`, `GetInt()`, `GetBool()`
+- Error storage: `SetError()`, `Error()` for middleware access to handler errors
 - Tracks if response was written via `written` field to prevent double writes
+- Static file serving: `Static()` for directories, `StaticFile()` for single files
 
 **server.go** - Server lifecycle management
 - `Server` interface: `Start(context.Context)`, `Stop(context.Context)`
@@ -160,6 +162,8 @@ app.ServeHTTP(rr, req)
 4. **Response tracking**: `written` flag prevents double writes and enables error auto-response
 5. **Chi integration**: Uses `chi.URLParam()` for route parameters, embeds `chi.Mux` for routing
 6. **Graceful shutdown**: `Run()` handles SIGINT/SIGTERM, uses context with timeout for shutdown
+7. **Context keys**: Uses typed `contextKey` string type for context keys to avoid collisions (e.g., `ErrorKey`)
+8. **Error propagation**: Handler errors stored in both request context (via `ErrorKey`) and Context struct (via `SetError()`) for middleware access
 
 ## Related Repositories
 
