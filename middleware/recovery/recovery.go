@@ -1,10 +1,12 @@
 package recovery
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"runtime/debug"
+	"strings"
 )
 
 // Option is recovery option.
@@ -69,9 +71,10 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 						"method", r.Method,
 					}
 
-					// Add stack trace if enabled
+					// Add formatted stack trace if enabled
 					if o.enableStackTrace {
-						fields = append(fields, "stack", string(debug.Stack()))
+						stack := formatStack(debug.Stack())
+						fields = append(fields, "stack", stack)
 					}
 
 					// Log the panic
@@ -93,4 +96,29 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// formatStack formats the stack trace for better readability
+func formatStack(stack []byte) string {
+	lines := strings.Split(string(stack), "\n")
+	var formatted []string
+
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+
+		// Skip empty lines and goroutine header
+		if line == "" || strings.HasPrefix(line, "goroutine") {
+			continue
+		}
+
+		// Function name line
+		if !strings.HasPrefix(line, "\t") && !strings.Contains(line, ".go:") {
+			formatted = append(formatted, fmt.Sprintf("  → %s", line))
+		} else if strings.Contains(line, ".go:") {
+			// File location line - extract file and line number
+			formatted = append(formatted, fmt.Sprintf("    %s", line))
+		}
+	}
+
+	return strings.Join(formatted, "\n")
 }
