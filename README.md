@@ -671,24 +671,65 @@ api := app.Group("/api", jwt.New([]byte("secret-key")))
 
 ### 🏗️ [Ares Layout](https://github.com/xushuhui/ares-layout)
 
-Application template demonstrating best practices for structuring Ares applications:
+Production-ready application template demonstrating best practices for structuring Ares applications:
 
-- **Clean Architecture** - Separation of concerns with layered architecture
-- **Project Layout** - Industry-standard directory structure
-- **Dependency Injection** - Wire-based dependency injection
-- **Configuration Management** - Environment-based configuration
-- **Example CRUD** - Complete user management example
-- **Testing** - Unit and integration test examples
+- **Clean Architecture** - 4-layer architecture (Server → Handler → Biz → Data)
+- **Type-Safe SQL** - Using sqlc for compile-time safe database queries
+- **Redis Caching** - Integrated caching layer for performance
+- **Configuration Management** - YAML-based configuration
+- **Example CRUD** - Complete user management with MySQL
+- **Docker Support** - Containerized development environment
 
 **Features:**
-- ✅ Clean Architecture pattern
-- ✅ RESTful API example
-- ✅ Database integration
-- ✅ Middleware usage
-- ✅ Error handling
-- ✅ Logging and monitoring ready
+- ✅ Clean Architecture pattern (inspired by go-kratos)
+- ✅ RESTful API with proper HTTP semantics
+- ✅ Database integration (MySQL + sqlc)
+- ✅ Redis caching layer
+- ✅ OpenAPI/Swagger documentation
+- ✅ Production-ready error handling and logging
+
+**Quick Start:**
+```bash
+git clone https://github.com/xushuhui/ares-layout.git myproject
+cd myproject
+docker-compose -f deploy/docker-compose.yml up -d
+go run main.go
+```
 
 [→ View Repository](https://github.com/xushuhui/ares-layout#readme)
+
+### 🛠️ [Aresctl](https://github.com/xushuhui/aresctl)
+
+Command-line tool for Ares framework development:
+
+- **OpenAPI Generation** - Automatically generate OpenAPI 3.0 specifications from Go code
+- **Code Analysis** - Parse route definitions and API structures
+- **Convention-based** - Works seamlessly with ares-layout project structure
+- **Fast & Lightweight** - Minimal dependencies, quick execution
+
+**Installation:**
+```bash
+go install github.com/xushuhui/aresctl@latest
+```
+
+**Usage:**
+```bash
+# Generate OpenAPI documentation
+aresctl openapi
+
+# View help
+aresctl --help
+```
+
+**Features:**
+- ✅ Automatic OpenAPI 3.0 spec generation
+- ✅ Route and handler analysis
+- ✅ Request/Response schema extraction
+- ✅ Tag-based endpoint grouping
+- 🚧 Project scaffolding (coming soon)
+- 🚧 Code generation (coming soon)
+
+[→ View Repository](https://github.com/xushuhui/aresctl#readme)
 
 ### Additional Resources
 
@@ -703,6 +744,7 @@ Application template demonstrating best practices for structuring Ares applicati
 | **Core Framework** | Lightweight web framework | [github.com/xushuhui/ares](https://github.com/xushuhui/ares) |
 | **Extended Middleware** | Production-ready middleware | [github.com/xushuhui/ares-contrib](https://github.com/xushuhui/ares-contrib) |
 | **Application Template** | Project structure template | [github.com/xushuhui/ares-layout](https://github.com/xushuhui/ares-layout) |
+| **CLI Tool** | Development tools | [github.com/xushuhui/aresctl](https://github.com/xushuhui/aresctl) |
 | **Documentation** | Official documentation | [github.com/xushuhui/ares/wiki](https://github.com/xushuhui/ares/wiki) |
 
 ---

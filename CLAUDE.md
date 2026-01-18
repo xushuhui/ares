@@ -90,6 +90,12 @@ go mod verify
 - `NewHTTPServer()` creates server with options (read/write/idle/shutdown timeouts)
 - Separation of concerns: Ares handles routing, Server handles lifecycle
 
+**errors/error.go** - HTTP error helpers
+- `Error` struct with `Code` and `Message` fields
+- Helper functions: `BadRequest()`, `NotFound()`, `InternalError()`, `Forbidden()`, `Unauthorized()`
+- Implements standard `error` interface
+- Used for returning structured HTTP errors from handlers
+
 ### Middleware
 
 Located in `middleware/` directory:
@@ -99,6 +105,7 @@ Located in `middleware/` directory:
 - Wraps ResponseWriter to capture status code and bytes written
 - Configurable: skip paths, custom fields
 - Logs: method, path, status, duration, bytes, IP
+- Accesses handler errors from request context via `ErrorKey`
 
 **recovery/** - Panic recovery middleware
 - Recovers from panics to prevent server crashes
@@ -112,15 +119,17 @@ Located in `middleware/` directory:
 
 Handlers return `error`. The framework automatically:
 1. Logs the error with request details (path, method)
-2. If response not yet written, sends 500 JSON error response
-3. Allows clean error propagation without manual error handling in each handler
+2. Stores error in request context via `ErrorKey` for middleware access
+3. Stores error in Context struct via `SetError()` for middleware access
+4. If response not yet written, sends 500 JSON error response
+5. Allows clean error propagation without manual error handling in each handler
 
 ### Context Pooling
 
 `Context` objects are pooled using `sync.Pool`:
 - `NewContext()` gets from pool
 - `release()` returns to pool after request completes
-- `reset()` clears state for reuse
+- `reset()` clears state for reuse (via clearing store map)
 - Reduces GC pressure and allocations
 
 ### Route Groups
@@ -130,6 +139,14 @@ Groups allow organizing routes with common prefix and middleware:
 - Support nested groups: `api.Group("/v1")`
 - Middleware applied in order, wrapping the handler
 - `handle()` method constructs full path and applies group middleware chain
+- Middleware applied in reverse order (LIFO) when wrapping handlers
+
+### Context Keys
+
+Uses typed `contextKey` string type for context keys to avoid collisions:
+- `ErrorKey` (in ares.go): stores handler errors in request context
+- `errorKey` (in logger middleware): retrieves handler errors from request context
+- Both refer to the same "handler_error" key value
 
 ## Testing Patterns
 

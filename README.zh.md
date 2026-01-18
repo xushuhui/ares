@@ -671,24 +671,65 @@ api := app.Group("/api", jwt.New([]byte("secret-key")))
 
 ### 🏗️ [Ares Layout](https://github.com/xushuhui/ares-layout)
 
-应用模板，展示构建 Ares 应用程序的最佳实践：
+生产级应用模板，展示构建 Ares 应用程序的最佳实践：
 
-- **Clean Architecture** - 分层架构，关注点分离
-- **项目布局** - 行业标准目录结构
-- **依赖注入** - 基于 Wire 的依赖注入
-- **配置管理** - 基于环境的配置
-- **CRUD 示例** - 完整的用户管理示例
-- **测试** - 单元测试和集成测试示例
+- **Clean Architecture** - 4 层架构（Server → Handler → Biz → Data）
+- **类型安全的 SQL** - 使用 sqlc 实现编译时安全的数据库查询
+- **Redis 缓存** - 集成缓存层提升性能
+- **配置管理** - 基于 YAML 的配置
+- **CRUD 示例** - 完整的用户管理示例（MySQL）
+- **Docker 支持** - 容器化开发环境
 
 **特性：**
-- ✅ Clean Architecture 模式
-- ✅ RESTful API 示例
-- ✅ 数据库集成
-- ✅ 中间件使用
-- ✅ 错误处理
-- ✅ 日志和监控就绪
+- ✅ Clean Architecture 模式（受 go-kratos 启发）
+- ✅ 符合 HTTP 语义的 RESTful API
+- ✅ 数据库集成（MySQL + sqlc）
+- ✅ Redis 缓存层
+- ✅ OpenAPI/Swagger 文档
+- ✅ 生产就绪的错误处理和日志
+
+**快速开始：**
+```bash
+git clone https://github.com/xushuhui/ares-layout.git myproject
+cd myproject
+docker-compose -f deploy/docker-compose.yml up -d
+go run main.go
+```
 
 [→ 查看仓库](https://github.com/xushuhui/ares-layout#readme)
+
+### 🛠️ [Aresctl](https://github.com/xushuhui/aresctl)
+
+Ares 框架的命令行开发工具：
+
+- **OpenAPI 生成** - 自动从 Go 代码生成 OpenAPI 3.0 规范
+- **代码分析** - 解析路由定义和 API 结构
+- **约定优于配置** - 与 ares-layout 项目结构无缝配合
+- **快速轻量** - 最小依赖，快速执行
+
+**安装：**
+```bash
+go install github.com/xushuhui/aresctl@latest
+```
+
+**使用：**
+```bash
+# 生成 OpenAPI 文档
+aresctl openapi
+
+# 查看帮助
+aresctl --help
+```
+
+**特性：**
+- ✅ 自动生成 OpenAPI 3.0 规范
+- ✅ 路由和处理器分析
+- ✅ 请求/响应 schema 提取
+- ✅ 基于标签的端点分组
+- 🚧 项目脚手架（即将推出）
+- 🚧 代码生成（即将推出）
+
+[→ 查看仓库](https://github.com/xushuhui/aresctl#readme)
 
 ### 其他资源
 
@@ -703,6 +744,7 @@ api := app.Group("/api", jwt.New([]byte("secret-key")))
 | **核心框架** | 轻量级 Web 框架 | [github.com/xushuhui/ares](https://github.com/xushuhui/ares) |
 | **扩展中间件** | 生产就绪的中间件 | [github.com/xushuhui/ares-contrib](https://github.com/xushuhui/ares-contrib) |
 | **应用模板** | 项目结构模板 | [github.com/xushuhui/ares-layout](https://github.com/xushuhui/ares-layout) |
+| **CLI 工具** | 开发工具 | [github.com/xushuhui/aresctl](https://github.com/xushuhui/aresctl) |
 | **文档** | 官方文档 | [github.com/xushuhui/ares/wiki](https://github.com/xushuhui/ares/wiki) |
 
 ---
