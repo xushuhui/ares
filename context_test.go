@@ -1013,3 +1013,72 @@ func BenchmarkContextJSON(b *testing.B) {
 		ctx.release()
 	}
 }
+
+func TestContextFlush(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test Flush with httptest.ResponseRecorder (which implements http.Flusher)
+	flushed := ctx.Flush()
+	if !flushed {
+		t.Error("Expected Flush to return true for httptest.ResponseRecorder")
+	}
+}
+
+func TestContextFlushNotSupported(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	// Create a custom ResponseWriter that doesn't implement http.Flusher
+	w := &nonFlusherResponseWriter{}
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	// Test Flush with non-flusher ResponseWriter
+	flushed := ctx.Flush()
+	if flushed {
+		t.Error("Expected Flush to return false for non-flusher ResponseWriter")
+	}
+}
+
+// nonFlusherResponseWriter is a ResponseWriter that doesn't implement http.Flusher
+type nonFlusherResponseWriter struct {
+	statusCode int
+	headers    http.Header
+	body       *bytes.Buffer
+}
+
+func (w *nonFlusherResponseWriter) Header() http.Header {
+	if w.headers == nil {
+		w.headers = make(http.Header)
+	}
+	return w.headers
+}
+
+func (w *nonFlusherResponseWriter) Write(data []byte) (int, error) {
+	if w.body == nil {
+		w.body = &bytes.Buffer{}
+	}
+	return w.body.Write(data)
+}
+
+func (w *nonFlusherResponseWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+}
+
+func BenchmarkContextFlush(b *testing.B) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	req := httptest.NewRequest("GET", "/test", nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		ctx := NewContext(w, req, logger)
+		_ = ctx.Flush()
+		ctx.release()
+	}
+}
