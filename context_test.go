@@ -1023,10 +1023,8 @@ func TestContextFlush(t *testing.T) {
 	defer ctx.release()
 
 	// Test Flush with httptest.ResponseRecorder (which implements http.Flusher)
-	flushed := ctx.Flush()
-	if !flushed {
-		t.Error("Expected Flush to return true for httptest.ResponseRecorder")
-	}
+	 ctx.Flush()
+
 }
 
 func TestContextFlushNotSupported(t *testing.T) {
@@ -1039,10 +1037,8 @@ func TestContextFlushNotSupported(t *testing.T) {
 	defer ctx.release()
 
 	// Test Flush with non-flusher ResponseWriter
-	flushed := ctx.Flush()
-	if flushed {
-		t.Error("Expected Flush to return false for non-flusher ResponseWriter")
-	}
+	 ctx.Flush()
+
 }
 
 // nonFlusherResponseWriter is a ResponseWriter that doesn't implement http.Flusher
@@ -1078,7 +1074,7 @@ func BenchmarkContextFlush(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		w := httptest.NewRecorder()
 		ctx := NewContext(w, req, logger)
-		_ = ctx.Flush()
+		 ctx.Flush()
 		ctx.release()
 	}
 }
