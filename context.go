@@ -322,7 +322,6 @@ func (c *Context) SetError(err error) {
 }
 
 // Flush sends any buffered content to the client
-// Returns false if the underlying ResponseWriter doesn't support flushing
 func (c *Context) Flush() {
 	if flusher, ok := c.ResponseWriter.(http.Flusher); ok {
 		flusher.Flush()
