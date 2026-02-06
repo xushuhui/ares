@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
 )
 
 // TestNilPointerPanic tests that ares recovers from nil pointer panic

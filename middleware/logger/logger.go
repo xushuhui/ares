@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 )
 
@@ -94,11 +95,9 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Check if path should be skipped
-			for _, path := range o.skipPaths {
-				if r.URL.Path == path {
-					next.ServeHTTP(w, r)
-					return
-				}
+			if slices.Contains(o.skipPaths, r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
 			}
 			start := time.Now()
 

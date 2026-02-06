@@ -103,7 +103,7 @@ func formatStack(stack []byte) string {
 	lines := strings.Split(string(stack), "\n")
 	var formatted []string
 
-	for i := 0; i < len(lines); i++ {
+	for i := range lines {
 		line := strings.TrimSpace(lines[i])
 
 		// Skip empty lines and goroutine header
