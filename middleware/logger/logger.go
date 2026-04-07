@@ -1,10 +1,12 @@
 package logger
 
 import (
+	"bufio"
+	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
-	"slices"
 	"time"
 )
 
@@ -20,7 +22,8 @@ type options struct {
 	logger *slog.Logger
 
 	// SkipPaths is a list of paths to skip logging
-	skipPaths []string
+	skipPaths   []string
+	skipPathSet map[string]struct{}
 
 	// CustomFields is a function to add custom fields to log
 	customFields func(*http.Request, int, time.Duration) []any
@@ -36,7 +39,7 @@ func WithLogger(logger *slog.Logger) Option {
 // WithSkipPaths sets paths to skip logging
 func WithSkipPaths(paths []string) Option {
 	return func(o *options) {
-		o.skipPaths = paths
+		o.skipPaths = append([]string(nil), paths...)
 	}
 }
 
@@ -70,6 +73,30 @@ func (rw *responseWriter) Flush() {
 	}
 }
 
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := rw.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, http.ErrNotSupported
+	}
+	return hijacker.Hijack()
+}
+
+func (rw *responseWriter) Push(target string, opts *http.PushOptions) error {
+	pusher, ok := rw.ResponseWriter.(http.Pusher)
+	if !ok {
+		return http.ErrNotSupported
+	}
+	return pusher.Push(target, opts)
+}
+
+func (rw *responseWriter) ReadFrom(r io.Reader) (int64, error) {
+	readerFrom, ok := rw.ResponseWriter.(io.ReaderFrom)
+	if ok {
+		return readerFrom.ReadFrom(r)
+	}
+	return io.Copy(rw.ResponseWriter, r)
+}
+
 func (rw *responseWriter) Unwrap() http.ResponseWriter {
 	return rw.ResponseWriter
 }
@@ -98,11 +125,17 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 	if o.logger == nil {
 		o.logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	}
+	if len(o.skipPaths) > 0 {
+		o.skipPathSet = make(map[string]struct{}, len(o.skipPaths))
+		for _, path := range o.skipPaths {
+			o.skipPathSet[path] = struct{}{}
+		}
+	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Check if path should be skipped
-			if slices.Contains(o.skipPaths, r.URL.Path) {
+			if _, ok := o.skipPathSet[r.URL.Path]; ok {
 				next.ServeHTTP(w, r)
 				return
 			}

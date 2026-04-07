@@ -424,19 +424,30 @@ app.Run(":8080",
 Ares supports functional options pattern for application configuration:
 
 ```go
-import "log/slog"
+import (
+    "log/slog"
+    "os"
+
+    "github.com/xushuhui/ares"
+    "github.com/xushuhui/ares/middleware/logger"
+    "github.com/xushuhui/ares/middleware/recovery"
+)
 
 // Create with default logger
-app := ares.New()
+appDefault := ares.New()
 
 // Create with custom logger
 customLogger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
     Level: slog.LevelInfo,
 }))
-app := ares.New(ares.WithLogger(customLogger))
+appCustom := ares.New(ares.WithLogger(customLogger))
 
-// Or use Default() with custom logger
-app := ares.Default(ares.WithLogger(customLogger))
+// Add default middleware with custom logger
+appWithDefaultMW := ares.New(ares.WithLogger(customLogger))
+appWithDefaultMW.Use(
+    logger.New(logger.WithLogger(appWithDefaultMW.Logger())),
+    recovery.New(recovery.WithLogger(appWithDefaultMW.Logger())),
+)
 ```
 
 **Available options**:

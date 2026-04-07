@@ -1,10 +1,12 @@
 package logger
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -296,6 +298,16 @@ func (w *flushTrackingWriter) Flush() {
 	w.ResponseRecorder.Flush()
 }
 
+type hijackTrackingWriter struct {
+	*httptest.ResponseRecorder
+	hijackCalled bool
+}
+
+func (w *hijackTrackingWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	w.hijackCalled = true
+	return nil, nil, errors.New("hijack called")
+}
+
 func TestLoggerPreservesFlusher(t *testing.T) {
 	var buf bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&buf, nil))
@@ -338,4 +350,29 @@ func TestLoggerPreservesUnwrap(t *testing.T) {
 	req := httptest.NewRequest("GET", "/unwrap", nil)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
+}
+
+func TestLoggerPreservesHijacker(t *testing.T) {
+	var buf bytes.Buffer
+	log := slog.New(slog.NewJSONHandler(&buf, nil))
+	middleware := New(WithLogger(log))
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			t.Fatal("expected wrapped ResponseWriter to implement http.Hijacker")
+		}
+		_, _, err := hijacker.Hijack()
+		if err == nil || !strings.Contains(err.Error(), "hijack called") {
+			t.Fatalf("expected delegated Hijack error, got %v", err)
+		}
+	}))
+
+	req := httptest.NewRequest("GET", "/upgrade", nil)
+	rw := &hijackTrackingWriter{ResponseRecorder: httptest.NewRecorder()}
+	handler.ServeHTTP(rw, req)
+
+	if !rw.hijackCalled {
+		t.Fatal("expected Hijack to be delegated to underlying ResponseWriter")
+	}
 }
