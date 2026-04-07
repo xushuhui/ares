@@ -391,8 +391,8 @@ func TestContextJSON(t *testing.T) {
 	defer ctx.release()
 
 	data := map[string]any{
-		"name": "john",
-		"age":  30,
+		"name":   "john",
+		"age":    30,
 		"active": true,
 	}
 
@@ -1023,7 +1023,7 @@ func TestContextFlush(t *testing.T) {
 	defer ctx.release()
 
 	// Test Flush with httptest.ResponseRecorder (which implements http.Flusher)
-	 ctx.Flush()
+	ctx.Flush()
 
 }
 
@@ -1037,7 +1037,7 @@ func TestContextFlushNotSupported(t *testing.T) {
 	defer ctx.release()
 
 	// Test Flush with non-flusher ResponseWriter
-	 ctx.Flush()
+	ctx.Flush()
 
 }
 
@@ -1066,6 +1066,40 @@ func (w *nonFlusherResponseWriter) WriteHeader(statusCode int) {
 	w.statusCode = statusCode
 }
 
+type unwrapOnlyResponseWriter struct {
+	http.ResponseWriter
+}
+
+func (w *unwrapOnlyResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
+type flushCounterWriter struct {
+	*httptest.ResponseRecorder
+	flushCount int
+}
+
+func (w *flushCounterWriter) Flush() {
+	w.flushCount++
+	w.ResponseRecorder.Flush()
+}
+
+func TestContextFlushViaUnwrap(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	req := httptest.NewRequest("GET", "/test", nil)
+	base := &flushCounterWriter{ResponseRecorder: httptest.NewRecorder()}
+	wrapped := &unwrapOnlyResponseWriter{ResponseWriter: base}
+
+	ctx := NewContext(wrapped, req, logger)
+	defer ctx.release()
+
+	ctx.Flush()
+
+	if base.flushCount == 0 {
+		t.Fatal("expected Flush to reach underlying ResponseWriter via Unwrap")
+	}
+}
+
 func BenchmarkContextFlush(b *testing.B) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -1074,7 +1108,7 @@ func BenchmarkContextFlush(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		w := httptest.NewRecorder()
 		ctx := NewContext(w, req, logger)
-		 ctx.Flush()
+		ctx.Flush()
 		ctx.release()
 	}
 }

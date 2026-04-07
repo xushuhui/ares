@@ -239,3 +239,42 @@ func TestGroupWithParams(t *testing.T) {
 		t.Error("Expected response to contain user ID")
 	}
 }
+
+func TestGroupChildIsolationFromParentLateUse(t *testing.T) {
+	app := New()
+	order := make([]string, 0, 8)
+
+	mw := func(name string) func(http.Handler) http.Handler {
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				order = append(order, name)
+				next.ServeHTTP(w, r)
+			})
+		}
+	}
+
+	parent := app.Group("/api", mw("m1"), mw("m2"))
+	parent.Use(mw("m3"))
+	child := parent.Group("/v1", mw("child"))
+	parent.Use(mw("parent_late"))
+
+	child.GET("/x", func(ctx *Context) error {
+		return ctx.String(http.StatusOK, "ok")
+	})
+
+	req := httptest.NewRequest("GET", "/api/v1/x", nil)
+	rr := httptest.NewRecorder()
+	app.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", rr.Code)
+	}
+
+	got := strings.Join(order, ",")
+	if !strings.Contains(got, "child") {
+		t.Fatalf("Expected child middleware to be applied, got order=%s", got)
+	}
+	if strings.Contains(got, "parent_late") {
+		t.Fatalf("Expected parent late middleware to not affect existing child, got order=%s", got)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 )
 
 // Server defines the interface for server implementations
@@ -18,6 +19,7 @@ type httpServer struct {
 	handler http.Handler
 	logger  *slog.Logger
 	options ServerOptions
+	mu      sync.RWMutex
 	srv     *http.Server
 }
 
@@ -43,19 +45,22 @@ func NewHTTPServer(addr string, handler http.Handler, logger *slog.Logger, opts 
 // The context parameter is currently not used as ListenAndServe blocks until shutdown.
 // Shutdown is controlled via the Stop method with its own context.
 func (s *httpServer) Start(ctx context.Context) error {
-	s.srv = &http.Server{
+	srv := &http.Server{
 		Addr:         s.addr,
 		Handler:      s.handler,
 		ReadTimeout:  s.options.ReadTimeout,
 		WriteTimeout: s.options.WriteTimeout,
 		IdleTimeout:  s.options.IdleTimeout,
 	}
+	s.mu.Lock()
+	s.srv = srv
+	s.mu.Unlock()
 
 	s.logger.Info("starting http server", "addr", s.addr)
 
 	// Start server (this blocks until server is shut down)
 	// Note: ListenAndServe does not accept a context, it runs until Shutdown is called
-	if err := s.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		s.logger.Error("http server error", "error", err)
 		return err
 	}
@@ -65,13 +70,16 @@ func (s *httpServer) Start(ctx context.Context) error {
 
 // Stop gracefully stops the HTTP server
 func (s *httpServer) Stop(ctx context.Context) error {
-	if s.srv == nil {
+	s.mu.RLock()
+	srv := s.srv
+	s.mu.RUnlock()
+	if srv == nil {
 		return nil
 	}
 
 	s.logger.Info("stopping http server...")
 
-	if err := s.srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(ctx); err != nil {
 		s.logger.Error("http server forced to shutdown", "error", err)
 		return err
 	}

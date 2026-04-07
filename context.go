@@ -176,6 +176,7 @@ func (c *Context) Redirect(code int, url string) error {
 		code = http.StatusFound
 	}
 	http.Redirect(c.ResponseWriter, c.Request, url, code)
+	c.written = true
 	return nil
 }
 
@@ -323,15 +324,14 @@ func (c *Context) SetError(err error) {
 
 // Flush sends any buffered content to the client
 func (c *Context) Flush() {
-	if flusher, ok := c.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
+	_ = http.NewResponseController(c.ResponseWriter).Flush()
 }
 
 // Error returns the error stored in the context
 func (c *Context) Error() error {
 	return c.err
 }
+
 // Unwrap returns the underlying http.ResponseWriter
 func (c *Context) Unwrap() http.ResponseWriter {
 	return c.ResponseWriter

@@ -138,7 +138,7 @@ func TestLoggerStatusCodes(t *testing.T) {
 
 			logOutput := buf.String()
 			// Check if log contains the status code as a number
-			statusStr := string(rune('0' + tt.statusCode/100)) + string(rune('0' + (tt.statusCode/10)%10)) + string(rune('0' + tt.statusCode%10))
+			statusStr := string(rune('0'+tt.statusCode/100)) + string(rune('0'+(tt.statusCode/10)%10)) + string(rune('0'+tt.statusCode%10))
 			if !strings.Contains(logOutput, statusStr) && !strings.Contains(logOutput, "status") {
 				t.Errorf("Expected log to contain status information for code %d, got: %s", tt.statusCode, logOutput)
 			}
@@ -284,4 +284,58 @@ func TestLoggerWithoutError(t *testing.T) {
 	if strings.Contains(logOutput, `"error"`) {
 		t.Error("Expected log not to contain 'error' field when no error occurs")
 	}
+}
+
+type flushTrackingWriter struct {
+	*httptest.ResponseRecorder
+	flushCount int
+}
+
+func (w *flushTrackingWriter) Flush() {
+	w.flushCount++
+	w.ResponseRecorder.Flush()
+}
+
+func TestLoggerPreservesFlusher(t *testing.T) {
+	var buf bytes.Buffer
+	log := slog.New(slog.NewJSONHandler(&buf, nil))
+	middleware := New(WithLogger(log))
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected wrapped ResponseWriter to implement http.Flusher")
+		}
+		_, _ = w.Write([]byte("chunk"))
+		flusher.Flush()
+	}))
+
+	req := httptest.NewRequest("GET", "/stream", nil)
+	rw := &flushTrackingWriter{ResponseRecorder: httptest.NewRecorder()}
+	handler.ServeHTTP(rw, req)
+
+	if rw.flushCount == 0 {
+		t.Fatal("expected Flush to be delegated to underlying ResponseWriter")
+	}
+}
+
+func TestLoggerPreservesUnwrap(t *testing.T) {
+	var buf bytes.Buffer
+	log := slog.New(slog.NewJSONHandler(&buf, nil))
+	middleware := New(WithLogger(log))
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		unwrap, ok := w.(interface{ Unwrap() http.ResponseWriter })
+		if !ok {
+			t.Fatal("expected wrapped ResponseWriter to expose Unwrap")
+		}
+		if unwrap.Unwrap() == nil {
+			t.Fatal("expected Unwrap to return underlying ResponseWriter")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/unwrap", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
 }

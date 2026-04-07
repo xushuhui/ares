@@ -236,3 +236,58 @@ func TestLoggerMiddlewareWithoutError(t *testing.T) {
 		t.Error("Expected log to contain the request path")
 	}
 }
+
+func TestLoggerMiddlewareWithHandlerErrorSeparatedLogger(t *testing.T) {
+	var appBuf bytes.Buffer
+	var middlewareBuf bytes.Buffer
+
+	appLogger := slog.New(slog.NewJSONHandler(&appBuf, nil))
+	middlewareLogger := slog.New(slog.NewJSONHandler(&middlewareBuf, nil))
+
+	app := New(WithLogger(appLogger))
+	app.Use(logger.New(logger.WithLogger(middlewareLogger)))
+
+	testError := errors.New("separated logger handler error")
+	app.GET("/error2", func(ctx *Context) error {
+		return testError
+	})
+
+	req := httptest.NewRequest("GET", "/error2", nil)
+	rr := httptest.NewRecorder()
+	app.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500, got %d", rr.Code)
+	}
+
+	middlewareLog := middlewareBuf.String()
+	if !strings.Contains(middlewareLog, "/error2") {
+		t.Fatal("Expected middleware log to contain request path")
+	}
+	if !strings.Contains(middlewareLog, `"error"`) {
+		t.Fatal("Expected middleware log to contain error field")
+	}
+	if !strings.Contains(middlewareLog, testError.Error()) {
+		t.Fatalf("Expected middleware log to contain handler error, got: %s", middlewareLog)
+	}
+}
+
+func TestRedirectThenErrorDoesNotAppendErrorBody(t *testing.T) {
+	app := New()
+	app.GET("/redirect", func(ctx *Context) error {
+		_ = ctx.Redirect(http.StatusFound, "/next")
+		return errors.New("redirect handler error")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/redirect", nil)
+	rr := httptest.NewRecorder()
+	app.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusFound {
+		t.Fatalf("Expected status 302, got %d", rr.Code)
+	}
+
+	if strings.Contains(rr.Body.String(), "redirect handler error") {
+		t.Fatalf("Expected redirect response body without appended error json, got: %q", rr.Body.String())
+	}
+}

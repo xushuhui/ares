@@ -8,11 +8,8 @@ import (
 	"time"
 )
 
-// contextKey is a custom type for context keys to avoid collisions
-type contextKey string
-
 // errorKey is the context key for retrieving handler errors from request context
-const errorKey contextKey = "handler_error"
+const errorKey = "handler_error"
 
 // Option is logger option.
 type Option func(*options)
@@ -65,6 +62,16 @@ func (rw *responseWriter) WriteHeader(code int) {
 func (rw *responseWriter) Write(b []byte) (int, error) {
 	n, err := rw.ResponseWriter.Write(b)
 	return n, err
+}
+
+func (rw *responseWriter) Flush() {
+	if flusher, ok := rw.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
 }
 
 // getHandlerError retrieves the error from request context if present

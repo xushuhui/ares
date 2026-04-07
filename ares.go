@@ -14,11 +14,8 @@ import (
 	"github.com/xushuhui/ares/middleware/recovery"
 )
 
-// contextKey is a custom type for context keys to avoid collisions
-type contextKey string
-
 // ErrorKey is the context key for storing handler errors
-const ErrorKey contextKey = "handler_error"
+const ErrorKey = "handler_error"
 
 // Handler defines the handler function signature
 type Handler func(*Context) error
@@ -198,10 +195,11 @@ func (a *Ares) StaticFile(pattern string, filepath string) {
 // Group creates a new router group with the given path prefix
 // Example: api := app.Group("/api/v1")
 func (a *Ares) Group(pattern string, middlewares ...func(http.Handler) http.Handler) *Group {
+	groupMiddlewares := append([]func(http.Handler) http.Handler(nil), middlewares...)
 	return &Group{
 		ares:        a,
 		prefix:      pattern,
-		middlewares: middlewares,
+		middlewares: groupMiddlewares,
 	}
 }
 
@@ -276,10 +274,12 @@ func (g *Group) PATCH(pattern string, h Handler) {
 
 // Group creates a sub-group with additional prefix
 func (g *Group) Group(pattern string, middlewares ...func(http.Handler) http.Handler) *Group {
+	combinedMiddlewares := append([]func(http.Handler) http.Handler(nil), g.middlewares...)
+	combinedMiddlewares = append(combinedMiddlewares, middlewares...)
 	return &Group{
 		ares:        g.ares,
 		prefix:      g.prefix + pattern,
-		middlewares: append(g.middlewares, middlewares...),
+		middlewares: combinedMiddlewares,
 	}
 }
 
