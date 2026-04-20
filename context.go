@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 
@@ -209,12 +211,18 @@ func (c *Context) File(filepath string) error {
 }
 
 // Attachment sends a file as an attachment (download)
-func (c *Context) Attachment(filepath, filename string) error {
+func (c *Context) Attachment(path, filename string) error {
 	if filename == "" {
-		filename = filepath
+		filename = filepath.Base(path)
 	}
-	c.SetHeader("Content-Disposition", `attachment; filename="`+filename+`"`)
-	return c.File(filepath)
+	params := make(map[string]string, 1)
+	params["filename"] = filename
+	disposition := mime.FormatMediaType("attachment", params)
+	if disposition == "" {
+		disposition = `attachment; filename="` + filename + `"`
+	}
+	c.SetHeader("Content-Disposition", disposition)
+	return c.File(path)
 }
 
 // Stream sends a stream response

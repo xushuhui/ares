@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/xushuhui/ares/internal/contextkeys"
 )
 
 func TestLogger(t *testing.T) {
@@ -269,7 +271,7 @@ func TestLoggerWithHandlerError(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Store error in request context to simulate Ares framework behavior
-		*r = *r.WithContext(context.WithValue(r.Context(), errorKey, testError))
+		*r = *r.WithContext(context.WithValue(r.Context(), contextkeys.HandlerError, testError))
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 
@@ -284,6 +286,28 @@ func TestLoggerWithHandlerError(t *testing.T) {
 	}
 	if !strings.Contains(logOutput, "error") {
 		t.Error("Expected log to contain 'error' field")
+	}
+}
+
+func TestLoggerIgnoresPlainStringContextKey(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	middleware := New(WithLogger(logger))
+	testError := errors.New("plain string key error")
+
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*r = *r.WithContext(context.WithValue(r.Context(), "handler_error", testError))
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	logOutput := buf.String()
+	if strings.Contains(logOutput, "plain string key error") {
+		t.Error("Expected logger to ignore plain string context key")
 	}
 }
 

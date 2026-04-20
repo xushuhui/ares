@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -716,8 +717,12 @@ func TestContextAttachment(t *testing.T) {
 	}
 
 	contentDisposition := w.Header().Get("Content-Disposition")
-	if !strings.Contains(contentDisposition, `attachment; filename="my_file.txt"`) {
-		t.Errorf("Expected Content-Disposition with filename, got '%s'", contentDisposition)
+	_, params, parseErr := mime.ParseMediaType(contentDisposition)
+	if parseErr != nil {
+		t.Fatalf("Expected parseable Content-Disposition, got error: %v", parseErr)
+	}
+	if params["filename"] != "my_file.txt" {
+		t.Errorf("Expected filename my_file.txt, got '%s'", params["filename"])
 	}
 
 	if body := w.Body.String(); body != content {
@@ -742,15 +747,53 @@ func TestContextAttachmentDefaultFilename(t *testing.T) {
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
 
-	// Use empty filename - should use filepath
+	// Use empty filename - should use base name only
 	err = ctx.Attachment(tempFile, "")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	contentDisposition := w.Header().Get("Content-Disposition")
-	if !strings.Contains(contentDisposition, tempFile) {
-		t.Errorf("Expected Content-Disposition with default filename, got '%s'", contentDisposition)
+	_, params, parseErr := mime.ParseMediaType(contentDisposition)
+	if parseErr != nil {
+		t.Fatalf("Expected parseable Content-Disposition, got error: %v", parseErr)
+	}
+	if params["filename"] != "default_name.txt" {
+		t.Errorf("Expected base filename default_name.txt, got '%s'", params["filename"])
+	}
+	if strings.Contains(contentDisposition, string(os.PathSeparator)) {
+		t.Errorf("Expected Content-Disposition not to leak path, got '%s'", contentDisposition)
+	}
+}
+
+func TestContextAttachmentEscapedFilename(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	tempFile := filepath.Join(os.TempDir(), "escape_name.txt")
+	content := "Escape filename test"
+	err := os.WriteFile(tempFile, []byte(content), 0o644)
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile)
+
+	req := httptest.NewRequest("GET", "/download", nil)
+	w := httptest.NewRecorder()
+	ctx := NewContext(w, req, logger)
+	defer ctx.release()
+
+	err = ctx.Attachment(tempFile, `my"file.txt`)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	contentDisposition := w.Header().Get("Content-Disposition")
+	_, params, parseErr := mime.ParseMediaType(contentDisposition)
+	if parseErr != nil {
+		t.Fatalf("Expected parseable Content-Disposition, got error: %v", parseErr)
+	}
+	if params["filename"] != `my"file.txt` {
+		t.Errorf("Expected filename my\"file.txt, got '%s'", params["filename"])
 	}
 }
 

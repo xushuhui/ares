@@ -8,10 +8,9 @@ import (
 	"net/http"
 	"os"
 	"time"
-)
 
-// errorKey is the context key for retrieving handler errors from request context
-const errorKey = "handler_error"
+	"github.com/xushuhui/ares/internal/contextkeys"
+)
 
 // Option is logger option.
 type Option func(*options)
@@ -104,7 +103,7 @@ func (rw *responseWriter) Unwrap() http.ResponseWriter {
 // getHandlerError retrieves the error from request context if present
 func (rw *responseWriter) getHandlerError() error {
 	if rw.request != nil {
-		if err := rw.request.Context().Value(errorKey); err != nil {
+		if err := rw.request.Context().Value(contextkeys.HandlerError); err != nil {
 			if e, ok := err.(error); ok {
 				return e
 			}

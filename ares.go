@@ -10,12 +10,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/xushuhui/ares/internal/contextkeys"
 	"github.com/xushuhui/ares/middleware/logger"
 	"github.com/xushuhui/ares/middleware/recovery"
 )
-
-// ErrorKey is the context key for storing handler errors
-const ErrorKey = "handler_error"
 
 // Handler defines the handler function signature
 type Handler func(*Context) error
@@ -127,7 +125,7 @@ func (a *Ares) wrapHandler(h Handler) http.HandlerFunc {
 
 		if err := h(ctx); err != nil {
 			// Store error in request context for middleware access
-			*r = *r.WithContext(context.WithValue(r.Context(), ErrorKey, err))
+			*r = *r.WithContext(context.WithValue(r.Context(), contextkeys.HandlerError, err))
 
 			// Store error in context for middleware access
 			ctx.SetError(err)
