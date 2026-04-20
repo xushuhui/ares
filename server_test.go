@@ -19,7 +19,15 @@ func TestNewHTTPServer(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	tests := []struct {
+	tests := make([]struct {
+		name     string
+		addr     string
+		handler  http.Handler
+		logger   *slog.Logger
+		options  []Option
+		wantType string
+	}, 3)
+	tests[0] = struct {
 		name     string
 		addr     string
 		handler  http.Handler
@@ -27,39 +35,50 @@ func TestNewHTTPServer(t *testing.T) {
 		options  []Option
 		wantType string
 	}{
-		{
-			name:     "basic server creation",
-			addr:     ":0",
-			handler:  handler,
-			logger:   logger,
-			options:  nil,
-			wantType: "*ares.httpServer",
-		},
-		{
-			name:    "server with custom timeouts",
-			addr:    ":0",
-			handler: handler,
-			logger:  logger,
-			options: []Option{
-				WithReadTimeout(5 * time.Second),
-				WithWriteTimeout(5 * time.Second),
-				WithIdleTimeout(10 * time.Second),
-			},
-			wantType: "*ares.httpServer",
-		},
-		{
-			name:    "server with all options",
-			addr:    ":0",
-			handler: handler,
-			logger:  logger,
-			options: []Option{
-				WithReadTimeout(15 * time.Second),
-				WithWriteTimeout(15 * time.Second),
-				WithIdleTimeout(30 * time.Second),
-				WithShutdownTimeout(5 * time.Second),
-			},
-			wantType: "*ares.httpServer",
-		},
+		name:     "basic server creation",
+		addr:     ":0",
+		handler:  handler,
+		logger:   logger,
+		options:  nil,
+		wantType: "*ares.httpServer",
+	}
+	tests[1] = struct {
+		name     string
+		addr     string
+		handler  http.Handler
+		logger   *slog.Logger
+		options  []Option
+		wantType string
+	}{
+		name:    "server with custom timeouts",
+		addr:    ":0",
+		handler: handler,
+		logger:  logger,
+		options: func() []Option {
+			opts := make([]Option, 0, 3)
+			opts = append(opts, WithReadTimeout(5*time.Second), WithWriteTimeout(5*time.Second), WithIdleTimeout(10*time.Second))
+			return opts
+		}(),
+		wantType: "*ares.httpServer",
+	}
+	tests[2] = struct {
+		name     string
+		addr     string
+		handler  http.Handler
+		logger   *slog.Logger
+		options  []Option
+		wantType string
+	}{
+		name:    "server with all options",
+		addr:    ":0",
+		handler: handler,
+		logger:  logger,
+		options: func() []Option {
+			opts := make([]Option, 0, 4)
+			opts = append(opts, WithReadTimeout(15*time.Second), WithWriteTimeout(15*time.Second), WithIdleTimeout(30*time.Second), WithShutdownTimeout(5*time.Second))
+			return opts
+		}(),
+		wantType: "*ares.httpServer",
 	}
 
 	for _, tt := range tests {

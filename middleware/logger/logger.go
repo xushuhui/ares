@@ -154,13 +154,15 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 			duration := time.Since(start)
 
 			// Build log fields
-			fields := []any{
+			fields := make([]any, 0, 10)
+			fields = append(
+				fields,
 				"method", r.Method,
 				"path", r.URL.Path,
 				"status", rw.statusCode,
 				"duration", duration.String(),
 				"ip", r.RemoteAddr,
-			}
+			)
 
 			// Add error field if present
 			if handlerErr := rw.getHandlerError(); handlerErr != nil {

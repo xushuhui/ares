@@ -65,11 +65,8 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 			defer func() {
 				if err := recover(); err != nil {
 					// Build log fields
-					fields := []any{
-						"error", err,
-						"path", r.URL.Path,
-						"method", r.Method,
-					}
+					fields := make([]any, 0, 6)
+					fields = append(fields, "error", err, "path", r.URL.Path, "method", r.Method)
 
 					// Add formatted stack trace if enabled
 					if o.enableStackTrace {

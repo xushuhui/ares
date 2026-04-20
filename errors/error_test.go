@@ -7,35 +7,46 @@ import (
 )
 
 func TestError_Error(t *testing.T) {
-	tests := []struct {
-		name    string
-		err     *Error
-		want    string
+	tests := make([]struct {
+		name string
+		err  *Error
+		want string
+	}, 3)
+	tests[0] = struct {
+		name string
+		err  *Error
+		want string
 	}{
-		{
-			name: "Error with code and message",
-			err: &Error{
-				Code:    404,
-				Message: "Not Found",
-			},
-			want: "code=404, message=Not Found",
+		name: "Error with code and message",
+		err: &Error{
+			Code:    404,
+			Message: "Not Found",
 		},
-		{
-			name: "Error with different code",
-			err: &Error{
-				Code:    500,
-				Message: "Internal Server Error",
-			},
-			want: "code=500, message=Internal Server Error",
+		want: "code=404, message=Not Found",
+	}
+	tests[1] = struct {
+		name string
+		err  *Error
+		want string
+	}{
+		name: "Error with different code",
+		err: &Error{
+			Code:    500,
+			Message: "Internal Server Error",
 		},
-		{
-			name: "Error with empty message",
-			err: &Error{
-				Code:    200,
-				Message: "",
-			},
-			want: "code=200, message=",
+		want: "code=500, message=Internal Server Error",
+	}
+	tests[2] = struct {
+		name string
+		err  *Error
+		want string
+	}{
+		name: "Error with empty message",
+		err: &Error{
+			Code:    200,
+			Message: "",
 		},
+		want: "code=200, message=",
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -47,26 +58,37 @@ func TestError_Error(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	tests := []struct {
+	tests := make([]struct {
+		name    string
+		code    int
+		message string
+	}, 3)
+	tests[0] = struct {
 		name    string
 		code    int
 		message string
 	}{
-		{
-			name:    "Create error with code 400",
-			code:    400,
-			message: "Bad Request",
-		},
-		{
-			name:    "Create error with code 404",
-			code:    404,
-			message: "Not Found",
-		},
-		{
-			name:    "Create error with code 500",
-			code:    500,
-			message: "Internal Server Error",
-		},
+		name:    "Create error with code 400",
+		code:    400,
+		message: "Bad Request",
+	}
+	tests[1] = struct {
+		name    string
+		code    int
+		message string
+	}{
+		name:    "Create error with code 404",
+		code:    404,
+		message: "Not Found",
+	}
+	tests[2] = struct {
+		name    string
+		code    int
+		message string
+	}{
+		name:    "Create error with code 500",
+		code:    500,
+		message: "Internal Server Error",
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -202,27 +224,34 @@ func TestUnauthorized(t *testing.T) {
 }
 
 func TestError_JSONMarshaling(t *testing.T) {
-	tests := []struct {
-		name      string
-		err       *Error
-		wantJSON  string
+	tests := make([]struct {
+		name     string
+		err      *Error
+		wantJSON string
+	}, 2)
+	tests[0] = struct {
+		name     string
+		err      *Error
+		wantJSON string
 	}{
-		{
-			name: "Marshal error to JSON",
-			err: &Error{
-				Code:    404,
-				Message: "Not Found",
-			},
-			wantJSON: `{"code":404,"message":"Not Found"}`,
+		name: "Marshal error to JSON",
+		err: &Error{
+			Code:    404,
+			Message: "Not Found",
 		},
-		{
-			name: "Marshal error with special characters",
-			err: &Error{
-				Code:    400,
-				Message: "Invalid \"input\"",
-			},
-			wantJSON: `{"code":400,"message":"Invalid \"input\""}`,
+		wantJSON: `{"code":404,"message":"Not Found"}`,
+	}
+	tests[1] = struct {
+		name     string
+		err      *Error
+		wantJSON string
+	}{
+		name: "Marshal error with special characters",
+		err: &Error{
+			Code:    400,
+			Message: "Invalid \"input\"",
 		},
+		wantJSON: `{"code":400,"message":"Invalid \"input\""}`,
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -282,36 +311,55 @@ func TestError_Interface(t *testing.T) {
 }
 
 func TestError_StandardHTTPStatusCodes(t *testing.T) {
-	tests := []struct {
-		name           string
-		constructor    func(string) error
-		expectedCode   int
+	tests := make([]struct {
+		name         string
+		constructor  func(string) error
+		expectedCode int
+	}, 5)
+	tests[0] = struct {
+		name         string
+		constructor  func(string) error
+		expectedCode int
 	}{
-		{
-			name:           "BadRequest",
-			constructor:    BadRequest,
-			expectedCode:   http.StatusBadRequest,
-		},
-		{
-			name:           "NotFound",
-			constructor:    NotFound,
-			expectedCode:   http.StatusNotFound,
-		},
-		{
-			name:           "InternalError",
-			constructor:    InternalError,
-			expectedCode:   http.StatusInternalServerError,
-		},
-		{
-			name:           "Forbidden",
-			constructor:    Forbidden,
-			expectedCode:   http.StatusForbidden,
-		},
-		{
-			name:           "Unauthorized",
-			constructor:    Unauthorized,
-			expectedCode:   http.StatusUnauthorized,
-		},
+		name:         "BadRequest",
+		constructor:  BadRequest,
+		expectedCode: http.StatusBadRequest,
+	}
+	tests[1] = struct {
+		name         string
+		constructor  func(string) error
+		expectedCode int
+	}{
+		name:         "NotFound",
+		constructor:  NotFound,
+		expectedCode: http.StatusNotFound,
+	}
+	tests[2] = struct {
+		name         string
+		constructor  func(string) error
+		expectedCode int
+	}{
+		name:         "InternalError",
+		constructor:  InternalError,
+		expectedCode: http.StatusInternalServerError,
+	}
+	tests[3] = struct {
+		name         string
+		constructor  func(string) error
+		expectedCode int
+	}{
+		name:         "Forbidden",
+		constructor:  Forbidden,
+		expectedCode: http.StatusForbidden,
+	}
+	tests[4] = struct {
+		name         string
+		constructor  func(string) error
+		expectedCode int
+	}{
+		name:         "Unauthorized",
+		constructor:  Unauthorized,
+		expectedCode: http.StatusUnauthorized,
 	}
 
 	for _, tt := range tests {

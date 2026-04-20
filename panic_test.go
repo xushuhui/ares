@@ -36,7 +36,8 @@ func TestSliceOutOfBoundsPanic(t *testing.T) {
 	app := Default()
 
 	app.GET("/panic/slice", func(c *Context) error {
-		slice := []int{1, 2, 3}
+		slice := make([]int, 0, 3)
+		slice = append(slice, 1, 2, 3)
 		_ = slice[10] // This will panic
 		return nil
 	})

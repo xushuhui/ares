@@ -160,16 +160,31 @@ func TestRecoveryNoPanic(t *testing.T) {
 }
 
 func TestRecoveryDifferentPanicTypes(t *testing.T) {
-	tests := []struct {
+	tests := make([]struct {
 		name      string
 		panicVal  any
 		expectLog string
-	}{
-		{"String panic", "string error", "string error"},
-		{"Error panic", http.ErrAbortHandler, "http: Handler"},
-		{"Int panic", 42, "42"},
-		{"Nil panic", nil, ""},
-	}
+	}, 4)
+	tests[0] = struct {
+		name      string
+		panicVal  any
+		expectLog string
+	}{"String panic", "string error", "string error"}
+	tests[1] = struct {
+		name      string
+		panicVal  any
+		expectLog string
+	}{"Error panic", http.ErrAbortHandler, "http: Handler"}
+	tests[2] = struct {
+		name      string
+		panicVal  any
+		expectLog string
+	}{"Int panic", 42, "42"}
+	tests[3] = struct {
+		name      string
+		panicVal  any
+		expectLog string
+	}{"Nil panic", nil, ""}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -159,7 +159,8 @@ func TestGroupHTTPMethods(t *testing.T) {
 		return ctx.JSON(http.StatusOK, map[string]string{"method": "PATCH"})
 	})
 
-	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
+	methods := make([]string, 0, 5)
+	methods = append(methods, "GET", "POST", "PUT", "DELETE", "PATCH")
 
 	for _, method := range methods {
 		req := httptest.NewRequest(method, "/api/resource", nil)

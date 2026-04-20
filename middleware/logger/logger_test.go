@@ -55,7 +55,14 @@ func TestLoggerWithSkipPaths(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 
-	middleware := New(WithLogger(logger), WithSkipPaths([]string{"/health", "/metrics"}))
+	middleware := New(
+		WithLogger(logger),
+		WithSkipPaths(func() []string {
+			paths := make([]string, 0, 2)
+			paths = append(paths, "/health", "/metrics")
+			return paths
+		}()),
+	)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -85,10 +92,9 @@ func TestLoggerWithCustomFields(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 
 	middleware := New(WithLogger(logger), WithCustomFields(func(r *http.Request, status int, duration time.Duration) []any {
-		return []any{
-			"user_agent", r.UserAgent(),
-			"custom_field", "custom_value",
-		}
+		fields := make([]any, 0, 4)
+		fields = append(fields, "user_agent", r.UserAgent(), "custom_field", "custom_value")
+		return fields
 	}))
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -111,16 +117,30 @@ func TestLoggerWithCustomFields(t *testing.T) {
 }
 
 func TestLoggerStatusCodes(t *testing.T) {
-	tests := []struct {
+	tests := make([]struct {
 		name       string
 		statusCode int
-	}{
-		{"200 OK", http.StatusOK},
-		{"201 Created", http.StatusCreated},
-		{"400 Bad Request", http.StatusBadRequest},
-		{"404 Not Found", http.StatusNotFound},
-		{"500 Internal Server Error", http.StatusInternalServerError},
-	}
+	}, 5)
+	tests[0] = struct {
+		name       string
+		statusCode int
+	}{"200 OK", http.StatusOK}
+	tests[1] = struct {
+		name       string
+		statusCode int
+	}{"201 Created", http.StatusCreated}
+	tests[2] = struct {
+		name       string
+		statusCode int
+	}{"400 Bad Request", http.StatusBadRequest}
+	tests[3] = struct {
+		name       string
+		statusCode int
+	}{"404 Not Found", http.StatusNotFound}
+	tests[4] = struct {
+		name       string
+		statusCode int
+	}{"500 Internal Server Error", http.StatusInternalServerError}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -172,7 +192,8 @@ func TestLoggerDuration(t *testing.T) {
 }
 
 func TestLoggerDifferentMethods(t *testing.T) {
-	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
+	methods := make([]string, 0, 5)
+	methods = append(methods, "GET", "POST", "PUT", "DELETE", "PATCH")
 
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
