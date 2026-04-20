@@ -141,9 +141,9 @@ func (a *Ares) wrapHandler(h Handler) http.HandlerFunc {
 
 			// If response hasn't been written yet, send error response
 			if !ctx.written {
-				ctx.JSON(http.StatusInternalServerError, map[string]string{
-					"error": err.Error(),
-				})
+				errorResponse := make(map[string]string, 1)
+				errorResponse["error"] = err.Error()
+				ctx.JSON(http.StatusInternalServerError, errorResponse)
 			}
 		}
 	}

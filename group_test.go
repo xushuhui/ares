@@ -12,7 +12,7 @@ func TestGroupBasic(t *testing.T) {
 
 	api := app.Group("/api")
 	api.GET("/users", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"message": "users"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "users"))
 	})
 
 	req := httptest.NewRequest("GET", "/api/users", nil)
@@ -42,7 +42,7 @@ func TestGroupMiddleware(t *testing.T) {
 
 	api := app.Group("/api", authMiddleware)
 	api.GET("/protected", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"message": "protected"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "protected"))
 	})
 
 	req := httptest.NewRequest("GET", "/api/protected", nil)
@@ -65,12 +65,12 @@ func TestGroupNestedGroups(t *testing.T) {
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
 	v1.GET("/users", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"version": "v1"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("version", "v1"))
 	})
 
 	v2 := api.Group("/v2")
 	v2.GET("/users", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"version": "v2"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("version", "v2"))
 	})
 
 	// Test v1
@@ -118,7 +118,7 @@ func TestGroupNestedMiddleware(t *testing.T) {
 	api := app.Group("/api", middleware1)
 	v1 := api.Group("/v1", middleware2)
 	v1.GET("/test", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"message": "test"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "test"))
 	})
 
 	req := httptest.NewRequest("GET", "/api/v1/test", nil)
@@ -144,19 +144,19 @@ func TestGroupHTTPMethods(t *testing.T) {
 
 	api := app.Group("/api")
 	api.GET("/resource", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"method": "GET"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("method", "GET"))
 	})
 	api.POST("/resource", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"method": "POST"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("method", "POST"))
 	})
 	api.PUT("/resource", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"method": "PUT"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("method", "PUT"))
 	})
 	api.DELETE("/resource", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"method": "DELETE"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("method", "DELETE"))
 	})
 	api.PATCH("/resource", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"method": "PATCH"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("method", "PATCH"))
 	})
 
 	methods := make([]string, 0, 5)
@@ -198,7 +198,7 @@ func TestGroupUseMethod(t *testing.T) {
 	api := app.Group("/api")
 	api.Use(middleware1, middleware2)
 	api.GET("/test", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"message": "test"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "test"))
 	})
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
@@ -224,7 +224,7 @@ func TestGroupWithParams(t *testing.T) {
 	api := app.Group("/api")
 	api.GET("/users/{id}", func(ctx *Context) error {
 		id := ctx.Param("id")
-		return ctx.JSON(http.StatusOK, map[string]string{"id": id})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("id", id))
 	})
 
 	req := httptest.NewRequest("GET", "/api/users/123", nil)

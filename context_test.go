@@ -201,7 +201,7 @@ func TestContextStoreInHandler(t *testing.T) {
 		}
 
 		handlerCalled = true
-		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -390,11 +390,10 @@ func TestContextJSON(t *testing.T) {
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
 
-	data := map[string]any{
-		"name":   "john",
-		"age":    30,
-		"active": true,
-	}
+	data := make(map[string]any, 3)
+	data["name"] = "john"
+	data["age"] = 30
+	data["active"] = true
 
 	err := ctx.JSON(http.StatusOK, data)
 	if err != nil {
@@ -651,7 +650,7 @@ func TestContextFile(t *testing.T) {
 	// Create a temporary file
 	tempFile := filepath.Join(os.TempDir(), "test_file.txt")
 	content := "Hello, World!"
-	err := os.WriteFile(tempFile, []byte(content), 0644)
+	err := os.WriteFile(tempFile, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
@@ -696,7 +695,7 @@ func TestContextAttachment(t *testing.T) {
 	// Create a temporary file
 	tempFile := filepath.Join(os.TempDir(), "test_attachment.txt")
 	content := "Attachment content"
-	err := os.WriteFile(tempFile, []byte(content), 0644)
+	err := os.WriteFile(tempFile, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
@@ -732,7 +731,7 @@ func TestContextAttachmentDefaultFilename(t *testing.T) {
 	// Create a temporary file
 	tempFile := filepath.Join(os.TempDir(), "default_name.txt")
 	content := "Default filename test"
-	err := os.WriteFile(tempFile, []byte(content), 0644)
+	err := os.WriteFile(tempFile, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
@@ -1000,10 +999,9 @@ func BenchmarkContextJSON(b *testing.B) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	req := httptest.NewRequest("GET", "/test", nil)
 
-	data := map[string]any{
-		"name": "john",
-		"age":  30,
-	}
+	data := make(map[string]any, 2)
+	data["name"] = "john"
+	data["age"] = 30
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1024,7 +1022,6 @@ func TestContextFlush(t *testing.T) {
 
 	// Test Flush with httptest.ResponseRecorder (which implements http.Flusher)
 	ctx.Flush()
-
 }
 
 func TestContextFlushNotSupported(t *testing.T) {
@@ -1038,7 +1035,6 @@ func TestContextFlushNotSupported(t *testing.T) {
 
 	// Test Flush with non-flusher ResponseWriter
 	ctx.Flush()
-
 }
 
 // nonFlusherResponseWriter is a ResponseWriter that doesn't implement http.Flusher

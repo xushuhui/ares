@@ -81,7 +81,7 @@ func TestNormalHandlerAfterPanic(t *testing.T) {
 	})
 
 	app.GET("/normal", func(c *Context) error {
-		return c.JSON(200, map[string]string{"status": "ok"})
+		return c.JSON(200, makeSingleStringMap("status", "ok"))
 	})
 
 	// First request panics

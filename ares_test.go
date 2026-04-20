@@ -42,7 +42,7 @@ func TestDefault(t *testing.T) {
 	handlerCalled := false
 	app.GET("/test", func(ctx *Context) error {
 		handlerCalled = true
-		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -63,7 +63,7 @@ func TestDefaultLoggingMiddleware(t *testing.T) {
 	app := Default()
 
 	app.GET("/test", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"message": "test"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "test"))
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -114,7 +114,7 @@ func TestDefaultMiddlewareOrder(t *testing.T) {
 	})
 
 	app.GET("/test", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -135,13 +135,13 @@ func TestNewVsDefault(t *testing.T) {
 	// Test that New() doesn't have middleware
 	appNew := New()
 	appNew.GET("/test", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
 	// Test that Default() has middleware
 	appDefault := Default()
 	appDefault.GET("/test", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
 	// Both should work
@@ -214,7 +214,7 @@ func TestLoggerMiddlewareWithoutError(t *testing.T) {
 
 	// Add a handler that succeeds
 	app.GET("/success", func(ctx *Context) error {
-		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
 	req := httptest.NewRequest("GET", "/success", nil)
