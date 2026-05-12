@@ -170,7 +170,7 @@ func Upload(ctx *ares.Context) error {
 - `ctx.SetHeader(key, value string)` - Set response header
 - `ctx.Redirect(code int, url string)` - Redirect to URL
 - `ctx.File(filepath string)` - Send file
-- `ctx.Attachment(filepath, filename string)` - Send file as download
+- `ctx.Attachment(filepath, filename string)` - Send file as download (empty `filename` uses base name of `filepath`)
 - `ctx.Stream(contentType string, reader io.Reader)` - Stream response
 
 **Other**:
@@ -481,11 +481,7 @@ logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
     Level: slog.LevelInfo,
 }))
 
-// Option 1: Set logger after creation
-app := ares.New()
-app.SetLogger(logger)
-
-// Option 2: Use WithLogger option
+// Use WithLogger option
 app := ares.New(ares.WithLogger(logger))
 ```
 

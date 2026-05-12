@@ -22,6 +22,10 @@ var contextPool = sync.Pool{
 	},
 }
 
+// maxPooledStoreEntries limits how many entries we keep when returning Context
+// to the pool, so huge transient maps do not stay pinned across requests.
+const maxPooledStoreEntries = 16
+
 // Context wraps http.ResponseWriter and http.Request with additional helper methods
 type Context struct {
 	http.ResponseWriter
@@ -52,9 +56,12 @@ func (c *Context) release() {
 	c.logger = nil
 	c.written = false
 	c.err = nil
-	// Clear the store map
-	for k := range c.store {
-		delete(c.store, k)
+	if len(c.store) > maxPooledStoreEntries {
+		c.store = nil
+	} else {
+		for k := range c.store {
+			delete(c.store, k)
+		}
 	}
 	contextPool.Put(c)
 }

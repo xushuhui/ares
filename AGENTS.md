@@ -103,7 +103,7 @@ Located in `middleware/` directory:
 - Wraps ResponseWriter to capture status code and bytes written
 - Configurable: skip paths, custom fields
 - Logs: method, path, status, duration, bytes, IP
-- Accesses handler errors from request context via `ErrorKey`
+- Accesses handler errors from request context via typed key `contextkeys.HandlerError`
 
 **recovery/** - Panic recovery middleware
 - Recovers from panics to prevent server crashes
@@ -117,7 +117,7 @@ Located in `middleware/` directory:
 
 Handlers return `error`. The framework automatically:
 1. Logs the error with request details (path, method)
-2. Stores error in request context via `ErrorKey` for middleware access
+2. Stores error in request context via `contextkeys.HandlerError` for middleware access
 3. Stores error in Context struct via `SetError()` for middleware access
 4. If response not yet written, sends 500 JSON error response
 5. Allows clean error propagation without manual error handling in each handler
@@ -127,7 +127,7 @@ Handlers return `error`. The framework automatically:
 `Context` objects are pooled using `sync.Pool`:
 - `NewContext()` gets from pool
 - `release()` returns to pool after request completes
-- `reset()` clears state for reuse (via clearing store map)
+- `release()` clears store entries for reuse; if store grows beyond `maxPooledStoreEntries`, it is dropped to avoid retaining oversized maps
 - Reduces GC pressure and allocations
 
 ### Route Groups
@@ -141,10 +141,8 @@ Groups allow organizing routes with common prefix and middleware:
 
 ### Context Keys
 
-Uses typed `contextKey` string type for context keys to avoid collisions:
-- `ErrorKey` (in ares.go): stores handler errors in request context
-- `errorKey` (in logger middleware): retrieves handler errors from request context
-- Both refer to the same "handler_error" key value
+Uses typed key type for request-context keys to avoid collisions:
+- `contextkeys.HandlerError` (in `internal/contextkeys`): stores and retrieves handler errors across core and middleware
 
 ## Testing Patterns
 
@@ -177,8 +175,8 @@ app.ServeHTTP(rr, req)
 4. **Response tracking**: `written` flag prevents double writes and enables error auto-response
 5. **Chi integration**: Uses `chi.URLParam()` for route parameters, embeds `chi.Mux` for routing
 6. **Graceful shutdown**: `Run()` handles SIGINT/SIGTERM, uses context with timeout for shutdown
-7. **Context keys**: Uses typed `contextKey` string type for context keys to avoid collisions (e.g., `ErrorKey`)
-8. **Error propagation**: Handler errors stored in both request context (via `ErrorKey`) and Context struct (via `SetError()`) for middleware access
+7. **Context keys**: Uses typed key values for context keys to avoid collisions (e.g., `contextkeys.HandlerError`)
+8. **Error propagation**: Handler errors stored in both request context (via `contextkeys.HandlerError`) and Context struct (via `SetError()`) for middleware access
 
 ## Related Repositories
 

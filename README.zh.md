@@ -170,7 +170,7 @@ func Upload(ctx *ares.Context) error {
 - `ctx.SetHeader(key, value string)` - 设置响应头
 - `ctx.Redirect(code int, url string)` - 重定向到 URL
 - `ctx.File(filepath string)` - 发送文件
-- `ctx.Attachment(filepath, filename string)` - 发送文件作为下载
+- `ctx.Attachment(filepath, filename string)` - 发送文件作为下载（`filename` 为空时使用 `filepath` 的文件名）
 - `ctx.Stream(contentType string, reader io.Reader)` - 流式响应
 
 **其他**：
@@ -481,11 +481,7 @@ logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
     Level: slog.LevelInfo,
 }))
 
-// 方式 1：创建后设置日志
-app := ares.New()
-app.SetLogger(logger)
-
-// 方式 2：使用 WithLogger 选项
+// 使用 WithLogger 选项
 app := ares.New(ares.WithLogger(logger))
 ```
 

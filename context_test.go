@@ -3,6 +3,7 @@ package ares
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"mime"
 	"mime/multipart"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -174,6 +176,31 @@ func TestContextStoreClearing(t *testing.T) {
 	if _, ok := ctx2.Get("key2"); ok {
 		t.Error("Expected store to be cleared after release")
 	}
+}
+
+func TestContextStoreResetStrategy(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/test", nil)
+	ctx := NewContext(w, r, logger)
+
+	for i := 0; i <= maxPooledStoreEntries; i++ {
+		ctx.Set(fmt.Sprintf("k%d", i), i)
+	}
+
+	beforeStorePtr := reflect.ValueOf(ctx.store).Pointer()
+	ctx.release()
+	afterStorePtr := reflect.ValueOf(ctx.store).Pointer()
+
+	if beforeStorePtr == afterStorePtr {
+		t.Fatalf("Expected oversized store map to be reallocated on release")
+	}
+	if len(ctx.store) != 0 {
+		t.Fatalf("Expected reallocated store map to be empty, got len=%d", len(ctx.store))
+	}
+
+	ctx2 := NewContext(w, r, logger)
+	defer ctx2.release()
 }
 
 func TestContextStoreInHandler(t *testing.T) {
