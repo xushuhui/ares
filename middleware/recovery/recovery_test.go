@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +20,7 @@ func TestRecovery(t *testing.T) {
 		panic("test panic")
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -53,7 +54,7 @@ func TestRecoveryWithStackTrace(t *testing.T) {
 		panic("test panic")
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -77,7 +78,7 @@ func TestRecoveryWithoutStackTrace(t *testing.T) {
 		panic("test panic")
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -99,14 +100,14 @@ func TestRecoveryWithCustomHandler(t *testing.T) {
 		customHandlerCalled = true
 		capturedError = err
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("Custom error response"))
+		_, _ = w.Write([]byte("Custom error response"))
 	}))
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("custom panic")
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -136,10 +137,10 @@ func TestRecoveryNoPanic(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -197,7 +198,7 @@ func TestRecoveryDifferentPanicTypes(t *testing.T) {
 				panic(tt.panicVal)
 			}))
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 			rr := httptest.NewRecorder()
 
 			handler.ServeHTTP(rr, req)
@@ -226,7 +227,7 @@ func TestRecoveryLogFields(t *testing.T) {
 		panic("test panic")
 	}))
 
-	req := httptest.NewRequest("POST", "/api/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -248,7 +249,7 @@ func TestRecoveryDefaultLogger(t *testing.T) {
 		panic("test panic")
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -268,7 +269,7 @@ func TestRecoveryContentType(t *testing.T) {
 		panic("test panic")
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)

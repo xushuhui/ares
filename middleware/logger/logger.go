@@ -49,11 +49,12 @@ func WithCustomFields(f func(*http.Request, int, time.Duration) []any) Option {
 	}
 }
 
-// responseWriter wraps http.ResponseWriter to capture status code
+// responseWriter wraps http.ResponseWriter to capture status code and bytes written
 type responseWriter struct {
 	http.ResponseWriter
-	statusCode int
-	request    *http.Request
+	statusCode   int
+	bytesWritten int64
+	request      *http.Request
 }
 
 func (rw *responseWriter) WriteHeader(code int) {
@@ -63,6 +64,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 
 func (rw *responseWriter) Write(b []byte) (int, error) {
 	n, err := rw.ResponseWriter.Write(b)
+	rw.bytesWritten += int64(n)
 	return n, err
 }
 
@@ -78,14 +80,6 @@ func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 		return nil, nil, http.ErrNotSupported
 	}
 	return hijacker.Hijack()
-}
-
-func (rw *responseWriter) Push(target string, opts *http.PushOptions) error {
-	pusher, ok := rw.ResponseWriter.(http.Pusher)
-	if !ok {
-		return http.ErrNotSupported
-	}
-	return pusher.Push(target, opts)
 }
 
 func (rw *responseWriter) ReadFrom(r io.Reader) (int64, error) {
@@ -160,6 +154,7 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 				"path", r.URL.Path,
 				"status", rw.statusCode,
 				"duration", duration.String(),
+				"bytes", rw.bytesWritten,
 				"ip", r.RemoteAddr,
 			)
 

@@ -45,7 +45,7 @@ func TestDefault(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -66,7 +66,7 @@ func TestDefaultLoggingMiddleware(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "test"))
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -87,7 +87,7 @@ func TestDefaultRecoveryMiddleware(t *testing.T) {
 		panic("test panic")
 	})
 
-	req := httptest.NewRequest("GET", "/panic", nil)
+	req := newTestReq("GET", "/panic", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -117,7 +117,7 @@ func TestDefaultMiddlewareOrder(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -145,7 +145,7 @@ func TestNewVsDefault(t *testing.T) {
 	})
 
 	// Both should work
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 
 	rr1 := httptest.NewRecorder()
 	appNew.ServeHTTP(rr1, req)
@@ -175,7 +175,7 @@ func TestLoggerMiddlewareWithHandlerError(t *testing.T) {
 		return testError
 	})
 
-	req := httptest.NewRequest("GET", "/error", nil)
+	req := newTestReq("GET", "/error", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -217,7 +217,7 @@ func TestLoggerMiddlewareWithoutError(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
-	req := httptest.NewRequest("GET", "/success", nil)
+	req := newTestReq("GET", "/success", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -252,7 +252,7 @@ func TestLoggerMiddlewareWithHandlerErrorSeparatedLogger(t *testing.T) {
 		return testError
 	})
 
-	req := httptest.NewRequest("GET", "/error2", nil)
+	req := newTestReq("GET", "/error2", nil)
 	rr := httptest.NewRecorder()
 	app.ServeHTTP(rr, req)
 
@@ -279,7 +279,7 @@ func TestRedirectThenErrorDoesNotAppendErrorBody(t *testing.T) {
 		return errors.New("redirect handler error")
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/redirect", nil)
+	req := newTestReq(http.MethodGet, "/redirect", nil)
 	rr := httptest.NewRecorder()
 	app.ServeHTTP(rr, req)
 

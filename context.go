@@ -26,6 +26,12 @@ var contextPool = sync.Pool{
 // to the pool, so huge transient maps do not stay pinned across requests.
 const maxPooledStoreEntries = 16
 
+// defaultMaxBodyBytes is the default limit for Bind() request body reads.
+const defaultMaxBodyBytes int64 = 4 << 20 // 4MB
+
+// defaultMaxMultipartMemory is the default memory limit for multipart form parsing.
+const defaultMaxMultipartMemory int64 = 32 << 20 // 32MB
+
 // Context wraps http.ResponseWriter and http.Request with additional helper methods
 type Context struct {
 	http.ResponseWriter
@@ -87,9 +93,11 @@ func (c *Context) JSON(code int, v any) error {
 	return json.NewEncoder(c).Encode(v)
 }
 
-// Bind decodes the request body into the provided value (JSON only)
+// Bind decodes the request body into the provided value (JSON only).
+// Bodies exceeding defaultMaxBodyBytes are rejected with an error.
 func (c *Context) Bind(v any) error {
-	return json.NewDecoder(c.Request.Body).Decode(v)
+	r := http.MaxBytesReader(c.ResponseWriter, c.Request.Body, defaultMaxBodyBytes)
+	return json.NewDecoder(r).Decode(v)
 }
 
 // Param returns the URL parameter from chi router
@@ -205,7 +213,7 @@ func (c *Context) File(filepath string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	stat, err := file.Stat()
 	if err != nil {
@@ -243,7 +251,7 @@ func (c *Context) Stream(contentType string, reader io.Reader) error {
 // FormFile returns the first file for the provided form key
 func (c *Context) FormFile(name string) (*multipart.FileHeader, error) {
 	if c.Request.MultipartForm == nil {
-		if err := c.Request.ParseMultipartForm(32 << 20); err != nil { // 32MB default
+		if err := c.Request.ParseMultipartForm(defaultMaxMultipartMemory); err != nil {
 			return nil, err
 		}
 	}
@@ -251,7 +259,7 @@ func (c *Context) FormFile(name string) (*multipart.FileHeader, error) {
 	if err != nil {
 		return nil, err
 	}
-	file.Close()
+	_ = file.Close()
 	return header, nil
 }
 
@@ -261,21 +269,23 @@ func (c *Context) SaveUploadedFile(file *multipart.FileHeader, dst string) error
 	if err != nil {
 		return err
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
 
-	_, err = io.Copy(out, src)
-	return err
+	if _, err = io.Copy(out, src); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 // MultipartForm returns the parsed multipart form, including file uploads
 func (c *Context) MultipartForm() (*multipart.Form, error) {
-	if err := c.Request.ParseMultipartForm(32 << 20); err != nil { // 32MB default
+	if err := c.Request.ParseMultipartForm(defaultMaxMultipartMemory); err != nil {
 		return nil, err
 	}
 	return c.Request.MultipartForm, nil
@@ -293,13 +303,14 @@ func (c *Context) Get(key string) (any, bool) {
 	return value, exists
 }
 
-// MustGet retrieves a value from the context by key
-// Panics if the key doesn't exist
+// MustGet retrieves a value from the context by key.
+// Panics if the key does not exist — use Get() for safe access.
+// Prefer MustGet only in middleware that guarantees the key is set before the handler runs.
 func (c *Context) MustGet(key string) any {
 	if value, exists := c.store[key]; exists {
 		return value
 	}
-	panic("key \"" + key + "\" does not exist")
+	panic("ares: MustGet: key \"" + key + "\" not set — call Set() in middleware before the handler runs")
 }
 
 // GetString retrieves a string value from the context

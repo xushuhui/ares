@@ -90,7 +90,7 @@ func TestNewHTTPServer(t *testing.T) {
 			}
 
 			// Check that it implements Server interface
-			var _ Server = server
+			var _ Server = server //nolint:staticcheck
 
 			// Check internal type
 			if fmt.Sprintf("%T", server) != tt.wantType {
@@ -104,16 +104,16 @@ func TestHTTPServerStartStop(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	})
 
 	// Get a free port
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", ":0")
 	if err != nil {
 		t.Fatal("Failed to get free port:", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
+	_ = listener.Close()
 
 	addr := fmt.Sprintf(":%d", port)
 	server := NewHTTPServer(addr, handler, logger)
@@ -133,11 +133,15 @@ func TestHTTPServerStartStop(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Test that server is responding
-	resp, err := http.Get(fmt.Sprintf("http://localhost%s", addr))
+	getReq, err := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("http://localhost%s", addr), nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(getReq)
 	if err != nil {
 		t.Fatalf("Failed to connect to server: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -185,16 +189,16 @@ func TestHTTPServerGracefulShutdown(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond) // Simulate work
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("completed"))
+		_, _ = w.Write([]byte("completed"))
 	})
 
 	// Get a free port
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", ":0")
 	if err != nil {
 		t.Fatal("Failed to get free port:", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
+	_ = listener.Close()
 
 	addr := fmt.Sprintf(":%d", port)
 	server := NewHTTPServer(addr, handler, logger, WithShutdownTimeout(1*time.Second))
@@ -204,7 +208,7 @@ func TestHTTPServerGracefulShutdown(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		server.Start(context.Background())
+		_ = server.Start(context.Background())
 	}()
 
 	// Give server time to start
@@ -216,12 +220,17 @@ func TestHTTPServerGracefulShutdown(t *testing.T) {
 	reqWg.Add(1)
 	go func() {
 		defer reqWg.Done()
-		resp, err := http.Get(fmt.Sprintf("http://localhost%s", addr))
+		getReq, err := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("http://localhost%s", addr), nil)
 		if err != nil {
 			reqErr = err
 			return
 		}
-		defer resp.Body.Close()
+		resp, err := http.DefaultClient.Do(getReq)
+		if err != nil {
+			reqErr = err
+			return
+		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			reqErr = fmt.Errorf("expected status 200, got %d", resp.StatusCode)
 		}
@@ -263,12 +272,12 @@ func TestHTTPServerMultipleStops(t *testing.T) {
 	})
 
 	// Get a free port
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", ":0")
 	if err != nil {
 		t.Fatal("Failed to get free port:", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
+	_ = listener.Close()
 
 	addr := fmt.Sprintf(":%d", port)
 	server := NewHTTPServer(addr, handler, logger)
@@ -278,7 +287,7 @@ func TestHTTPServerMultipleStops(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		server.Start(context.Background())
+		_ = server.Start(context.Background())
 	}()
 
 	time.Sleep(100 * time.Millisecond) // Give server time to start
@@ -315,7 +324,7 @@ func TestHTTPServerInvalidAddress(t *testing.T) {
 	err := server.Start(context.Background())
 	if err == nil {
 		t.Error("Expected error for invalid address, got nil")
-		server.Stop(context.Background()) // Clean up if somehow it started
+		_ = server.Stop(context.Background()) // Clean up if somehow it started
 	}
 }
 
@@ -326,7 +335,7 @@ func TestHTTPServerPortInUse(t *testing.T) {
 	})
 
 	// Get a free port and immediately bind to it
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", ":0")
 	if err != nil {
 		t.Fatal("Failed to get free port:", err)
 	}
@@ -340,10 +349,10 @@ func TestHTTPServerPortInUse(t *testing.T) {
 	err = server.Start(context.Background())
 	if err == nil {
 		t.Error("Expected error for port in use, got nil")
-		server.Stop(context.Background()) // Clean up if somehow it started
+		_ = server.Stop(context.Background()) // Clean up if somehow it started
 	}
 
-	listener.Close() // Clean up
+	_ = listener.Close() // Clean up
 }
 
 func TestHTTPServerContextCancel(t *testing.T) {
@@ -354,12 +363,12 @@ func TestHTTPServerContextCancel(t *testing.T) {
 	})
 
 	// Get a free port
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", ":0")
 	if err != nil {
 		t.Fatal("Failed to get free port:", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
+	_ = listener.Close()
 
 	addr := fmt.Sprintf(":%d", port)
 	server := NewHTTPServer(addr, handler, logger)
@@ -369,7 +378,7 @@ func TestHTTPServerContextCancel(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		server.Start(context.Background())
+		_ = server.Start(context.Background())
 	}()
 
 	time.Sleep(100 * time.Millisecond) // Give server time to start

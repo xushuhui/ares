@@ -86,7 +86,9 @@ func New(opts ...Option) func(http.Handler) http.Handler {
 					// Default recovery response
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte(`{"error":"Internal Server Error"}`))
+					if _, werr := w.Write([]byte(`{"error":"Internal Server Error"}`)); werr != nil {
+						o.logger.Error("failed to write recovery response", "error", werr)
+					}
 				}
 			}()
 

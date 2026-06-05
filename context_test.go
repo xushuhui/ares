@@ -2,8 +2,10 @@ package ares
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"mime"
 	"mime/multipart"
@@ -19,10 +21,14 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+func newTestReq(method, path string, body io.Reader) *http.Request {
+	return httptest.NewRequestWithContext(context.Background(), method, path, body)
+}
+
 func TestContextSetGet(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/test", nil)
+	r := newTestReq("GET", "/test", nil)
 	ctx := NewContext(w, r, logger)
 	defer ctx.release()
 
@@ -53,7 +59,7 @@ func TestContextSetGet(t *testing.T) {
 func TestContextMustGet(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/test", nil)
+	r := newTestReq("GET", "/test", nil)
 	ctx := NewContext(w, r, logger)
 	defer ctx.release()
 
@@ -77,7 +83,7 @@ func TestContextMustGet(t *testing.T) {
 func TestContextGetString(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/test", nil)
+	r := newTestReq("GET", "/test", nil)
 	ctx := NewContext(w, r, logger)
 	defer ctx.release()
 
@@ -103,7 +109,7 @@ func TestContextGetString(t *testing.T) {
 func TestContextGetInt(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/test", nil)
+	r := newTestReq("GET", "/test", nil)
 	ctx := NewContext(w, r, logger)
 	defer ctx.release()
 
@@ -129,7 +135,7 @@ func TestContextGetInt(t *testing.T) {
 func TestContextGetBool(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/test", nil)
+	r := newTestReq("GET", "/test", nil)
 	ctx := NewContext(w, r, logger)
 	defer ctx.release()
 
@@ -155,7 +161,7 @@ func TestContextGetBool(t *testing.T) {
 func TestContextStoreClearing(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/test", nil)
+	r := newTestReq("GET", "/test", nil)
 	ctx := NewContext(w, r, logger)
 
 	// Set some values
@@ -181,7 +187,7 @@ func TestContextStoreClearing(t *testing.T) {
 func TestContextStoreResetStrategy(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/test", nil)
+	r := newTestReq("GET", "/test", nil)
 	ctx := NewContext(w, r, logger)
 
 	for i := 0; i <= maxPooledStoreEntries; i++ {
@@ -232,7 +238,7 @@ func TestContextStoreInHandler(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("status", "ok"))
 	})
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -262,7 +268,7 @@ func TestContextParam(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest("GET", "/users/123", nil)
+	req := newTestReq("GET", "/users/123", nil)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 }
@@ -270,7 +276,7 @@ func TestContextParam(t *testing.T) {
 func TestContextQuery(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test?name=john&age=30&active=true&score=95.5", nil)
+	req := newTestReq("GET", "/test?name=john&age=30&active=true&score=95.5", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -288,7 +294,7 @@ func TestContextQuery(t *testing.T) {
 func TestContextQueryDefault(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test?name=john", nil)
+	req := newTestReq("GET", "/test?name=john", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -307,7 +313,7 @@ func TestContextQueryDefault(t *testing.T) {
 func TestContextQueryInt(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test?age=30&invalid=abc", nil)
+	req := newTestReq("GET", "/test?age=30&invalid=abc", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -331,7 +337,7 @@ func TestContextQueryInt(t *testing.T) {
 func TestContextQueryBool(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test?active=true&inactive=false&invalid=abc", nil)
+	req := newTestReq("GET", "/test?active=true&inactive=false&invalid=abc", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -360,7 +366,7 @@ func TestContextQueryBool(t *testing.T) {
 func TestContextQueryFloat(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test?score=95.5&invalid=abc", nil)
+	req := newTestReq("GET", "/test?score=95.5&invalid=abc", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -389,7 +395,7 @@ func TestContextFormValue(t *testing.T) {
 	form.Add("username", "johndoe")
 	form.Add("email", "john@example.com")
 
-	req := httptest.NewRequest("POST", "/test", strings.NewReader(form.Encode()))
+	req := newTestReq("POST", "/test", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
@@ -413,7 +419,7 @@ func TestContextFormValue(t *testing.T) {
 func TestContextJSON(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -450,7 +456,7 @@ func TestContextJSON(t *testing.T) {
 func TestContextString(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -477,7 +483,7 @@ func TestContextString(t *testing.T) {
 func TestContextStatus(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -504,7 +510,7 @@ func TestContextBind(t *testing.T) {
 	user := User{Name: "john", Age: 30}
 	jsonData, _ := json.Marshal(user)
 
-	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonData))
+	req := newTestReq("POST", "/test", bytes.NewBuffer(jsonData))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
@@ -528,7 +534,7 @@ func TestContextBind(t *testing.T) {
 func TestContextBindInvalidJSON(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("POST", "/test", strings.NewReader("invalid json"))
+	req := newTestReq("POST", "/test", strings.NewReader("invalid json"))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
@@ -544,7 +550,7 @@ func TestContextBindInvalidJSON(t *testing.T) {
 func TestContextCookie(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{Name: "session", Value: "abc123"})
 	req.AddCookie(&http.Cookie{Name: "user", Value: "john"})
 	w := httptest.NewRecorder()
@@ -570,7 +576,7 @@ func TestContextCookie(t *testing.T) {
 func TestContextSetCookie(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -594,7 +600,7 @@ func TestContextSetCookie(t *testing.T) {
 func TestContextRedirect(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -617,7 +623,7 @@ func TestContextRedirect(t *testing.T) {
 func TestContextRedirectInvalidCode(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -636,7 +642,7 @@ func TestContextRedirectInvalidCode(t *testing.T) {
 func TestContextGetSetHeader(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	req.Header.Set("Authorization", "Bearer token123")
 	req.Header.Set("User-Agent", "TestClient/1.0")
 	w := httptest.NewRecorder()
@@ -682,9 +688,9 @@ func TestContextFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile)
+	defer func() { _ = os.Remove(tempFile) }()
 
-	req := httptest.NewRequest("GET", "/file", nil)
+	req := newTestReq("GET", "/file", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -706,7 +712,7 @@ func TestContextFile(t *testing.T) {
 func TestContextFileNotFound(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/file", nil)
+	req := newTestReq("GET", "/file", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -727,9 +733,9 @@ func TestContextAttachment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile)
+	defer func() { _ = os.Remove(tempFile) }()
 
-	req := httptest.NewRequest("GET", "/download", nil)
+	req := newTestReq("GET", "/download", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -767,9 +773,9 @@ func TestContextAttachmentDefaultFilename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile)
+	defer func() { _ = os.Remove(tempFile) }()
 
-	req := httptest.NewRequest("GET", "/download", nil)
+	req := newTestReq("GET", "/download", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -802,9 +808,9 @@ func TestContextAttachmentEscapedFilename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile)
+	defer func() { _ = os.Remove(tempFile) }()
 
-	req := httptest.NewRequest("GET", "/download", nil)
+	req := newTestReq("GET", "/download", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -827,7 +833,7 @@ func TestContextAttachmentEscapedFilename(t *testing.T) {
 func TestContextStream(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/stream", nil)
+	req := newTestReq("GET", "/stream", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -859,11 +865,11 @@ func TestContextMultipartForm(t *testing.T) {
 	// Create multipart form data
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
-	writer.WriteField("name", "john")
-	writer.WriteField("email", "john@example.com")
-	writer.Close()
+	_ = writer.WriteField("name", "john")
+	_ = writer.WriteField("email", "john@example.com")
+	_ = writer.Close()
 
-	req := httptest.NewRequest("POST", "/upload", &buf)
+	req := newTestReq("POST", "/upload", &buf)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
@@ -894,12 +900,12 @@ func TestContextFormFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create form file: %v", err)
 	}
-	fileWriter.Write([]byte("file content"))
+	_, _ = fileWriter.Write([]byte("file content"))
 
-	writer.WriteField("name", "john")
-	writer.Close()
+	_ = writer.WriteField("name", "john")
+	_ = writer.Close()
 
-	req := httptest.NewRequest("POST", "/upload", &buf)
+	req := newTestReq("POST", "/upload", &buf)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
@@ -925,10 +931,10 @@ func TestContextFormFileNotFound(t *testing.T) {
 	// Create form without file
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
-	writer.WriteField("name", "john")
-	writer.Close()
+	_ = writer.WriteField("name", "john")
+	_ = writer.Close()
 
-	req := httptest.NewRequest("POST", "/upload", &buf)
+	req := newTestReq("POST", "/upload", &buf)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
@@ -952,10 +958,10 @@ func TestContextSaveUploadedFile(t *testing.T) {
 		t.Fatalf("Failed to create form file: %v", err)
 	}
 	content := "file content for saving"
-	fileWriter.Write([]byte(content))
-	writer.Close()
+	_, _ = fileWriter.Write([]byte(content))
+	_ = writer.Close()
 
-	req := httptest.NewRequest("POST", "/upload", &buf)
+	req := newTestReq("POST", "/upload", &buf)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
@@ -967,7 +973,7 @@ func TestContextSaveUploadedFile(t *testing.T) {
 	}
 
 	tempFile := filepath.Join(os.TempDir(), "saved_file.txt")
-	defer os.Remove(tempFile)
+	defer func() { _ = os.Remove(tempFile) }()
 
 	err = ctx.SaveUploadedFile(fileHeader, tempFile)
 	if err != nil {
@@ -988,7 +994,7 @@ func TestContextSaveUploadedFile(t *testing.T) {
 func TestContextWriteTracking(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -1014,7 +1020,7 @@ func TestContextWriteTracking(t *testing.T) {
 func TestContextWriteMethod(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -1041,7 +1047,7 @@ func TestContextWriteMethod(t *testing.T) {
 // Benchmark tests for performance-critical methods
 func BenchmarkContextQuery(b *testing.B) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	req := httptest.NewRequest("GET", "/test?name=john&age=30&active=true", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test?name=john&age=30&active=true", nil)
 	w := httptest.NewRecorder()
 
 	b.ResetTimer()
@@ -1054,7 +1060,7 @@ func BenchmarkContextQuery(b *testing.B) {
 
 func BenchmarkContextQueryInt(b *testing.B) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	req := httptest.NewRequest("GET", "/test?age=30", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test?age=30", nil)
 	w := httptest.NewRecorder()
 
 	b.ResetTimer()
@@ -1067,7 +1073,7 @@ func BenchmarkContextQueryInt(b *testing.B) {
 
 func BenchmarkContextJSON(b *testing.B) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 
 	data := make(map[string]any, 2)
 	data["name"] = "john"
@@ -1085,7 +1091,7 @@ func BenchmarkContextJSON(b *testing.B) {
 func TestContextFlush(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	ctx := NewContext(w, req, logger)
 	defer ctx.release()
@@ -1097,7 +1103,7 @@ func TestContextFlush(t *testing.T) {
 func TestContextFlushNotSupported(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	// Create a custom ResponseWriter that doesn't implement http.Flusher
 	w := &nonFlusherResponseWriter{}
 	ctx := NewContext(w, req, logger)
@@ -1152,7 +1158,7 @@ func (w *flushCounterWriter) Flush() {
 
 func TestContextFlushViaUnwrap(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 	base := &flushCounterWriter{ResponseRecorder: httptest.NewRecorder()}
 	wrapped := &unwrapOnlyResponseWriter{ResponseWriter: base}
 
@@ -1168,7 +1174,7 @@ func TestContextFlushViaUnwrap(t *testing.T) {
 
 func BenchmarkContextFlush(b *testing.B) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := newTestReq("GET", "/test", nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

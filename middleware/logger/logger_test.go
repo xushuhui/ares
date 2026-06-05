@@ -24,10 +24,10 @@ func TestLogger(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -71,7 +71,7 @@ func TestLoggerWithSkipPaths(t *testing.T) {
 	}))
 
 	// Test skipped path
-	req1 := httptest.NewRequest("GET", "/health", nil)
+	req1 := httptest.NewRequestWithContext(context.Background(), "GET", "/health", nil)
 	rr1 := httptest.NewRecorder()
 	handler.ServeHTTP(rr1, req1)
 
@@ -80,7 +80,7 @@ func TestLoggerWithSkipPaths(t *testing.T) {
 	}
 
 	// Test non-skipped path
-	req2 := httptest.NewRequest("GET", "/api", nil)
+	req2 := httptest.NewRequestWithContext(context.Background(), "GET", "/api", nil)
 	rr2 := httptest.NewRecorder()
 	handler.ServeHTTP(rr2, req2)
 
@@ -103,7 +103,7 @@ func TestLoggerWithCustomFields(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.Header.Set("User-Agent", "test-agent")
 	rr := httptest.NewRecorder()
 
@@ -155,7 +155,7 @@ func TestLoggerStatusCodes(t *testing.T) {
 				w.WriteHeader(tt.statusCode)
 			}))
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 			rr := httptest.NewRecorder()
 
 			handler.ServeHTTP(rr, req)
@@ -178,10 +178,10 @@ func TestLoggerDuration(t *testing.T) {
 
 	responseBody := "test response body"
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(responseBody))
+		_, _ = w.Write([]byte(responseBody))
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -208,7 +208,7 @@ func TestLoggerDifferentMethods(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			}))
 
-			req := httptest.NewRequest(method, "/test", nil)
+			req := httptest.NewRequestWithContext(context.Background(), method, "/test", nil)
 			rr := httptest.NewRecorder()
 
 			handler.ServeHTTP(rr, req)
@@ -229,7 +229,7 @@ func TestLoggerDefaultLogger(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -249,7 +249,7 @@ func TestLoggerRemoteAddr(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "192.168.1.1:1234"
 	rr := httptest.NewRecorder()
 
@@ -275,7 +275,7 @@ func TestLoggerWithHandlerError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -297,11 +297,11 @@ func TestLoggerIgnoresPlainStringContextKey(t *testing.T) {
 	testError := errors.New("plain string key error")
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		*r = *r.WithContext(context.WithValue(r.Context(), "handler_error", testError))
+		*r = *r.WithContext(context.WithValue(r.Context(), "handler_error", testError)) //nolint:staticcheck
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -321,7 +321,7 @@ func TestLoggerWithoutError(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -367,7 +367,7 @@ func TestLoggerPreservesFlusher(t *testing.T) {
 		flusher.Flush()
 	}))
 
-	req := httptest.NewRequest("GET", "/stream", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/stream", nil)
 	rw := &flushTrackingWriter{ResponseRecorder: httptest.NewRecorder()}
 	handler.ServeHTTP(rw, req)
 
@@ -392,7 +392,7 @@ func TestLoggerPreservesUnwrap(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/unwrap", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/unwrap", nil)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 }
@@ -413,7 +413,7 @@ func TestLoggerPreservesHijacker(t *testing.T) {
 		}
 	}))
 
-	req := httptest.NewRequest("GET", "/upgrade", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/upgrade", nil)
 	rw := &hijackTrackingWriter{ResponseRecorder: httptest.NewRecorder()}
 	handler.ServeHTTP(rw, req)
 

@@ -1,0 +1,38 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - durationcheck
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - whitespace
+    - unconvert
+    - nilerr
+    - noctx
+    - gocritic
+  exclusions:
+    rules:
+      - linters:
+          - unused
+        text: 'const .* is unused'
+
+  settings:
+    govet:
+      enable:
+        - copylocks
+    whitespace: {}
+    errcheck:
+      exclude-functions:
+        - (io.ReadCloser).Close
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (*bufio.Writer).Flush
+    gocritic:
+      enabled-checks:
+        - nilValReturn
+        - weakCond

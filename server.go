@@ -41,9 +41,9 @@ func NewHTTPServer(addr string, handler http.Handler, logger *slog.Logger, opts 
 	}
 }
 
-// Start starts the HTTP server
-// The context parameter is currently not used as ListenAndServe blocks until shutdown.
-// Shutdown is controlled via the Stop method with its own context.
+// Start starts the HTTP server and blocks until it is shut down.
+// The ctx parameter is accepted to satisfy the Server interface but is not used to
+// trigger shutdown; call Stop(ctx) explicitly or use Run() for signal-based shutdown.
 func (s *httpServer) Start(ctx context.Context) error {
 	srv := &http.Server{
 		Addr:         s.addr,

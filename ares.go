@@ -2,6 +2,7 @@ package ares
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	aresErrors "github.com/xushuhui/ares/errors"
 	"github.com/xushuhui/ares/internal/contextkeys"
 	"github.com/xushuhui/ares/middleware/logger"
 	"github.com/xushuhui/ares/middleware/recovery"
@@ -124,24 +126,31 @@ func (a *Ares) wrapHandler(h Handler) http.HandlerFunc {
 		defer ctx.release() // Return to pool after use
 
 		if err := h(ctx); err != nil {
-			// Store error in request context for middleware access
+			// Store error in request context for middleware access (e.g. logger middleware).
+			// Mutation of *r is intentional: the logger middleware stores the same pointer
+			// before calling next, so mutating the struct lets it see the updated context
+			// without requiring ares.Context access.
 			*r = *r.WithContext(context.WithValue(r.Context(), contextkeys.HandlerError, err))
 
-			// Store error in context for middleware access
 			ctx.SetError(err)
 
-			// Log the error
 			a.logger.Error("handler error",
 				"error", err,
 				"path", r.URL.Path,
 				"method", r.Method,
 			)
 
-			// If response hasn't been written yet, send error response
 			if !ctx.written {
+				code := http.StatusInternalServerError
+				msg := err.Error()
+				var httpErr *aresErrors.Error
+				if errors.As(err, &httpErr) {
+					code = httpErr.Code
+					msg = httpErr.Message
+				}
 				errorResponse := make(map[string]string, 1)
-				errorResponse["error"] = err.Error()
-				ctx.JSON(http.StatusInternalServerError, errorResponse)
+				errorResponse["error"] = msg
+				_ = ctx.JSON(code, errorResponse)
 			}
 		}
 	}

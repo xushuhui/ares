@@ -15,7 +15,7 @@ func TestGroupBasic(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "users"))
 	})
 
-	req := httptest.NewRequest("GET", "/api/users", nil)
+	req := newTestReq("GET", "/api/users", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -45,7 +45,7 @@ func TestGroupMiddleware(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "protected"))
 	})
 
-	req := httptest.NewRequest("GET", "/api/protected", nil)
+	req := newTestReq("GET", "/api/protected", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -74,7 +74,7 @@ func TestGroupNestedGroups(t *testing.T) {
 	})
 
 	// Test v1
-	req1 := httptest.NewRequest("GET", "/api/v1/users", nil)
+	req1 := newTestReq("GET", "/api/v1/users", nil)
 	rr1 := httptest.NewRecorder()
 	app.ServeHTTP(rr1, req1)
 
@@ -86,7 +86,7 @@ func TestGroupNestedGroups(t *testing.T) {
 	}
 
 	// Test v2
-	req2 := httptest.NewRequest("GET", "/api/v2/users", nil)
+	req2 := newTestReq("GET", "/api/v2/users", nil)
 	rr2 := httptest.NewRecorder()
 	app.ServeHTTP(rr2, req2)
 
@@ -121,7 +121,7 @@ func TestGroupNestedMiddleware(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "test"))
 	})
 
-	req := httptest.NewRequest("GET", "/api/v1/test", nil)
+	req := newTestReq("GET", "/api/v1/test", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -163,7 +163,7 @@ func TestGroupHTTPMethods(t *testing.T) {
 	methods = append(methods, "GET", "POST", "PUT", "DELETE", "PATCH")
 
 	for _, method := range methods {
-		req := httptest.NewRequest(method, "/api/resource", nil)
+		req := newTestReq(method, "/api/resource", nil)
 		rr := httptest.NewRecorder()
 
 		app.ServeHTTP(rr, req)
@@ -201,7 +201,7 @@ func TestGroupUseMethod(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("message", "test"))
 	})
 
-	req := httptest.NewRequest("GET", "/api/test", nil)
+	req := newTestReq("GET", "/api/test", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -227,7 +227,7 @@ func TestGroupWithParams(t *testing.T) {
 		return ctx.JSON(http.StatusOK, makeSingleStringMap("id", id))
 	})
 
-	req := httptest.NewRequest("GET", "/api/users/123", nil)
+	req := newTestReq("GET", "/api/users/123", nil)
 	rr := httptest.NewRecorder()
 
 	app.ServeHTTP(rr, req)
@@ -263,7 +263,7 @@ func TestGroupChildIsolationFromParentLateUse(t *testing.T) {
 		return ctx.String(http.StatusOK, "ok")
 	})
 
-	req := httptest.NewRequest("GET", "/api/v1/x", nil)
+	req := newTestReq("GET", "/api/v1/x", nil)
 	rr := httptest.NewRecorder()
 	app.ServeHTTP(rr, req)
 

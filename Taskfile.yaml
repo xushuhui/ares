@@ -1,0 +1,17 @@
+version: '3'
+
+tasks:
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  fmt:
+    desc: Format Go code with gofumpt
+    cmds:
+      - gofumpt -w .
+
+  fix:
+    desc: Apply modernize analyzer fixes
+    cmds:
+      - go run golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@latest -fix ./...
